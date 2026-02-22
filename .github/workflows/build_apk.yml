@@ -2,16 +2,16 @@ name: Build Flutter APK
 
 on:
   push:
-    branches: [ "main", "master" ] # main이나 master에 푸시될 때 실행
+    branches: [ "main", "master" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4 # ✅ v4로 업데이트
       
       - name: Set up Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4 # ✅ v4로 업데이트
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -21,14 +21,14 @@ jobs:
         with:
           channel: 'stable'
           
-      - name: Install dependencies
+      - name: Get dependencies
         run: flutter pub get
         
       - name: Build APK
         run: flutter build apk --release
         
-      - name: Upload APK
-        uses: actions/upload-artifact@v3
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4 # ✅ 가장 중요한 에러 해결 부분 (v4로 업데이트)
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
