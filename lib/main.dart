@@ -1,15 +1,15 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
 // =============================================================
-// My Calendar App — main.dart (Military Grade Secure Edition v2.6.1)
+// My Calendar App — main.dart (Military Grade Secure Edition v2.7.0)
 // Updated : 2026-02-24
 //
-// [v2.6.1 주요 업데이트 사항]
-// 1. FIX: Windows 환경 테스트 시 발생하는 Notification 에러 방어 로직 추가 (Platform 확인)
-// 2. STABILITY: 데스크톱/웹 환경에서 앱이 크래시 나지 않고 UI 테스트가 가능하도록 Bypass 적용
+// [v2.7.0 주요 업데이트 사항]
+// 1. FEAT: 설정창 우측 상단에 "완료" 버튼 추가 (직관적인 닫기 지원)
+// 2. FEAT: 각 개별 일정마다 고유한 소리(custom 포함)와 진동 패턴을 지정할 수 있도록 확장
+// 3. CORE: 알림 채널 동적 생성 로직(_ensureChannel) 도입으로 무한한 알림 조합 지원
 // =============================================================
 
-import 'dart:io'
-    show Platform; // 💡 [v2.6.1] 실행 환경(Windows, Android 등) 확인을 위해 추가
+import 'dart:io' show Platform;
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
@@ -51,7 +51,7 @@ enum NotificationSound {
   chime(label: '맑은 종소리', fileName: 'chime'),
   bell(label: '경쾌한 벨소리', fileName: 'bell'),
   bird(label: '새소리', fileName: 'bird'),
-  custom(label: '🎵 내 휴대폰 음악 사용', fileName: 'custom');
+  custom(label: '🎵 내 휴대폰 음악', fileName: 'custom');
 
   const NotificationSound({required this.label, required this.fileName});
   final String label;
@@ -71,15 +71,14 @@ enum VibrationPattern {
 }
 
 class AppSettings {
-  final bool showLunarCalendar;
-  final bool masterEnabled;
-  final bool soundEnabled;
-  final bool vibrationEnabled;
-  final bool globalSilentMode;
+  final bool showLunarCalendar,
+      masterEnabled,
+      soundEnabled,
+      vibrationEnabled,
+      globalSilentMode;
   final NotificationSound soundOption;
   final VibrationPattern vibrationPattern;
   final String? customSoundPath;
-  final String? lastCustomChannelId;
   final AppTheme currentTheme;
 
   const AppSettings({
@@ -91,7 +90,6 @@ class AppSettings {
     this.soundOption = NotificationSound.system,
     this.vibrationPattern = VibrationPattern.heartbeat,
     this.customSoundPath,
-    this.lastCustomChannelId,
     this.currentTheme = AppTheme.samsung,
   });
 
@@ -112,7 +110,6 @@ class AppSettings {
         'soundOption': soundOption.index,
         'vibrationPattern': vibrationPattern.index,
         'customSoundPath': customSoundPath,
-        'lastCustomChannelId': lastCustomChannelId,
         'currentTheme': currentTheme.index,
       };
 
@@ -125,7 +122,6 @@ class AppSettings {
         soundOption: NotificationSound.values[j['soundOption'] ?? 0],
         vibrationPattern: VibrationPattern.values[j['vibrationPattern'] ?? 1],
         customSoundPath: j['customSoundPath'],
-        lastCustomChannelId: j['lastCustomChannelId'],
         currentTheme:
             AppTheme.values[j['currentTheme'] ?? AppTheme.samsung.index],
       );
@@ -139,7 +135,6 @@ class AppSettings {
     NotificationSound? soundOption,
     VibrationPattern? vibrationPattern,
     String? customSoundPath,
-    String? lastCustomChannelId,
     bool clearCustom = false,
     AppTheme? currentTheme,
   }) =>
@@ -153,9 +148,6 @@ class AppSettings {
         vibrationPattern: vibrationPattern ?? this.vibrationPattern,
         customSoundPath:
             clearCustom ? null : (customSoundPath ?? this.customSoundPath),
-        lastCustomChannelId: clearCustom
-            ? null
-            : (lastCustomChannelId ?? this.lastCustomChannelId),
         currentTheme: currentTheme ?? this.currentTheme,
       );
 }
@@ -186,6 +178,12 @@ class CalendarEvent {
   final AlarmMinutes alarmMinutes;
   final AlarmMode eventAlarmMode;
   final bool isAlarmOn;
+
+  // 💡 [v2.7.0] 개별 일정별 고유 소리 및 진동 패턴 저장 변수 추가
+  final NotificationSound soundOption;
+  final VibrationPattern vibrationPattern;
+  final String? customSoundPath;
+
   final DateTime startDt;
   final DateTime endDt;
 
@@ -200,7 +198,10 @@ class CalendarEvent {
       this.endTime,
       this.alarmMinutes = AlarmMinutes.none,
       this.eventAlarmMode = AlarmMode.soundAndVibration,
-      this.isAlarmOn = true})
+      this.isAlarmOn = true,
+      this.soundOption = NotificationSound.system,
+      this.vibrationPattern = VibrationPattern.heartbeat,
+      this.customSoundPath})
       : startDt = DateTime.parse(date),
         endDt =
             endDate != null ? DateTime.parse(endDate) : DateTime.parse(date);
@@ -228,7 +229,10 @@ class CalendarEvent {
         'endTime': endTime,
         'alarmMinutes': alarmMinutes.index,
         'eventAlarmMode': eventAlarmMode.index,
-        'isAlarmOn': isAlarmOn
+        'isAlarmOn': isAlarmOn,
+        'soundOption': soundOption.index,
+        'vibrationPattern': vibrationPattern.index,
+        'customSoundPath': customSoundPath
       };
 
   factory CalendarEvent.fromJson(Map<String, dynamic> json) => CalendarEvent(
@@ -243,7 +247,11 @@ class CalendarEvent {
       alarmMinutes: AlarmMinutes.values[(json['alarmMinutes'] as int?) ?? 0],
       eventAlarmMode: AlarmMode.values[(json['eventAlarmMode'] as int?) ??
           AlarmMode.soundAndVibration.index],
-      isAlarmOn: json['isAlarmOn'] as bool? ?? true);
+      isAlarmOn: json['isAlarmOn'] as bool? ?? true,
+      soundOption: NotificationSound.values[(json['soundOption'] as int?) ?? 0],
+      vibrationPattern:
+          VibrationPattern.values[(json['vibrationPattern'] as int?) ?? 1],
+      customSoundPath: json['customSoundPath'] as String?);
 
   CalendarEvent copyWith(
       {int? id,
@@ -256,7 +264,10 @@ class CalendarEvent {
       String? endTime,
       AlarmMinutes? alarmMinutes,
       AlarmMode? eventAlarmMode,
-      bool? isAlarmOn}) {
+      bool? isAlarmOn,
+      NotificationSound? soundOption,
+      VibrationPattern? vibrationPattern,
+      String? customSoundPath}) {
     return CalendarEvent(
         id: id ?? this.id,
         title: title ?? this.title,
@@ -268,7 +279,10 @@ class CalendarEvent {
         endTime: endTime ?? this.endTime,
         alarmMinutes: alarmMinutes ?? this.alarmMinutes,
         eventAlarmMode: eventAlarmMode ?? this.eventAlarmMode,
-        isAlarmOn: isAlarmOn ?? this.isAlarmOn);
+        isAlarmOn: isAlarmOn ?? this.isAlarmOn,
+        soundOption: soundOption ?? this.soundOption,
+        vibrationPattern: vibrationPattern ?? this.vibrationPattern,
+        customSoundPath: customSoundPath ?? this.customSoundPath);
   }
 }
 
@@ -277,21 +291,15 @@ void _log(String msg) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 🔔 알림 서비스 (플랫폼 방어 로직 적용)
+// 🔔 알림 서비스 (동적 채널 시스템)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
-
-  // 💡 [v2.6.1] 모바일(Android/iOS)인지 확인하는 헬퍼 속성
   static bool get _isMobile =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   static Future<void> init() async {
-    if (!_isMobile) {
-      _log('[NotifSvc] 데스크톱 환경에서는 알림 초기화를 건너뜁니다.');
-      return;
-    }
-
+    if (!_isMobile) return;
     tz_data.initializeTimeZones();
     try {
       final String tzName =
@@ -303,105 +311,87 @@ class NotificationService {
     await _plugin.initialize(const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         iOS: DarwinInitializationSettings()));
-    await _registerStaticChannels();
   }
 
-  static Future<void> _registerStaticChannels() async {
-    if (!_isMobile) return;
+  // 💡 [v2.7.0] 모든 알림 조합을 안전하게 수용하는 동적 채널 보장 로직
+  static Future<String> _ensureChannel(AlarmMode mode, NotificationSound sound,
+      VibrationPattern vib, String? customPath) async {
+    if (!_isMobile) return 'cal_silent';
     final impl = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    if (impl == null) return;
-    await impl.createNotificationChannel(const AndroidNotificationChannel(
-        'cal_silent', '무음 알림',
-        importance: Importance.low, playSound: false, enableVibration: false));
-    await impl.createNotificationChannel(const AndroidNotificationChannel(
-        'cal_vibration', '진동 알림',
-        importance: Importance.high, playSound: false, enableVibration: true));
+    if (impl == null) return 'cal_silent';
 
-    for (final s in NotificationSound.values) {
-      if (s == NotificationSound.custom) continue;
-      final sound = s == NotificationSound.system
-          ? null
-          : RawResourceAndroidNotificationSound(s.fileName);
-      await impl.createNotificationChannel(AndroidNotificationChannel(
-          'cal_snd_${s.name}', '소리 (${s.label})',
-          importance: Importance.high, playSound: true, sound: sound));
-      await impl.createNotificationChannel(AndroidNotificationChannel(
-          'cal_sv_${s.name}', '소리+진동 (${s.label})',
-          importance: Importance.high,
-          playSound: true,
-          sound: sound,
-          enableVibration: true));
+    if (mode == AlarmMode.silent) {
+      await impl.createNotificationChannel(const AndroidNotificationChannel(
+          'cal_silent', '무음 알림',
+          importance: Importance.low,
+          playSound: false,
+          enableVibration: false));
+      return 'cal_silent';
     }
-  }
 
-  static Future<String?> setupCustomChannel(
-      AppSettings settings, AlarmMode mode) async {
-    if (!_isMobile) return null;
-    final impl = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    if (impl == null || settings.customSoundPath == null) return null;
-    final newChannelId =
-        'cal_custom_${settings.customSoundPath.hashCode}_${mode.index}';
-    final androidSound =
-        UriAndroidNotificationSound('file://${settings.customSoundPath}');
-    final hasVib = mode == AlarmMode.soundAndVibration;
+    String idStr = 'cal';
+    String nameStr = '알림';
+    AndroidNotificationSound? androidSound;
+    bool playSnd = false;
+    bool playVib = false;
+
+    if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
+      playSnd = true;
+      if (sound == NotificationSound.custom && customPath != null) {
+        androidSound = UriAndroidNotificationSound('file://$customPath');
+        idStr += '_cust_${customPath.hashCode}';
+        nameStr = '내 음악 알림';
+      } else {
+        if (sound != NotificationSound.system)
+          androidSound = RawResourceAndroidNotificationSound(sound.fileName);
+        idStr += '_snd_${sound.name}';
+        nameStr = '소리 알림';
+      }
+    }
+    if (mode == AlarmMode.vibrationOnly ||
+        mode == AlarmMode.soundAndVibration) {
+      playVib = true;
+      idStr += '_vib_${vib.name}';
+      nameStr += playSnd ? ' (진동포함)' : '진동 전용 알림';
+    }
 
     await impl.createNotificationChannel(AndroidNotificationChannel(
-      newChannelId,
-      '내 휴대폰 음악 알림',
-      importance: Importance.high,
-      playSound: true,
-      sound: androidSound,
-      enableVibration: hasVib,
-      vibrationPattern: hasVib ? settings.vibrationPattern.patternInt64 : null,
-    ));
-    return newChannelId;
+        idStr, nameStr,
+        importance: Importance.high,
+        playSound: playSnd,
+        sound: androidSound,
+        enableVibration: playVib,
+        vibrationPattern: playVib ? vib.patternInt64 : null));
+    return idStr;
   }
 
   static Future<void> scheduleEventAlarm(
       {required CalendarEvent event, required AppSettings settings}) async {
-    if (!_isMobile) {
-      _log('[NotifSvc] 데스크톱 환경 - 예약 알림 무시 (title: ${event.title})');
-      return;
-    }
+    if (!_isMobile) return;
     if (!settings.masterEnabled ||
         !event.isAlarmOn ||
         event.alarmDateTime == null ||
         event.alarmDateTime!.isBefore(DateTime.now())) return;
-
     try {
       final mode =
           settings.globalSilentMode ? AlarmMode.silent : event.eventAlarmMode;
-      String channelId = 'cal_silent';
-      AndroidNotificationSound? snd;
+      final channelId = await _ensureChannel(mode, event.soundOption,
+          event.vibrationPattern, event.customSoundPath);
 
-      if (mode == AlarmMode.silent) {
-        channelId = 'cal_silent';
-      } else if (mode == AlarmMode.vibrationOnly) {
-        channelId = 'cal_vibration';
-      } else {
-        if (settings.soundOption == NotificationSound.custom &&
-            settings.customSoundPath != null) {
-          channelId =
-              (await setupCustomChannel(settings, mode)) ?? 'cal_silent';
-          snd =
-              UriAndroidNotificationSound('file://${settings.customSoundPath}');
-        } else {
-          channelId = mode == AlarmMode.soundAndVibration
-              ? 'cal_sv_${settings.soundOption.name}'
-              : 'cal_snd_${settings.soundOption.name}';
-          if (settings.soundOption != NotificationSound.system) {
-            snd = RawResourceAndroidNotificationSound(
-                settings.soundOption.fileName);
-          }
+      AndroidNotificationSound? snd;
+      if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
+        if (event.soundOption == NotificationSound.custom &&
+            event.customSoundPath != null) {
+          snd = UriAndroidNotificationSound('file://${event.customSoundPath}');
+        } else if (event.soundOption != NotificationSound.system) {
+          snd = RawResourceAndroidNotificationSound(event.soundOption.fileName);
         }
       }
-
       Int64List? vib;
       if (mode == AlarmMode.vibrationOnly ||
           mode == AlarmMode.soundAndVibration)
-        vib = settings.vibrationPattern.patternInt64;
+        vib = event.vibrationPattern.patternInt64;
 
       final androidDetails = AndroidNotificationDetails(channelId, '캘린더 알림',
           importance:
@@ -409,11 +399,10 @@ class NotificationService {
           priority: Priority.high,
           sound: snd,
           playSound:
-              snd != null || settings.soundOption == NotificationSound.system,
+              snd != null || event.soundOption == NotificationSound.system,
           enableVibration: vib != null,
           vibrationPattern: vib,
           silent: mode == AlarmMode.silent);
-
       await _plugin.zonedSchedule(
           event.id,
           '📅 일정 알림',
@@ -435,48 +424,39 @@ class NotificationService {
 
   static Future<void> showTestNotification(
       AppSettings settings, AlarmMode testMode) async {
-    if (!_isMobile) {
-      _log('[NotifSvc] 데스크톱 환경 - 테스트 알림 무시');
-      return;
-    }
+    if (!_isMobile) return;
     try {
-      String channelId = 'cal_silent';
+      final mode = settings.globalSilentMode ? AlarmMode.silent : testMode;
+      final channelId = await _ensureChannel(mode, settings.soundOption,
+          settings.vibrationPattern, settings.customSoundPath);
+
       AndroidNotificationSound? snd;
-      if (testMode == AlarmMode.silent) {
-        channelId = 'cal_silent';
-      } else if (testMode == AlarmMode.vibrationOnly) {
-        channelId = 'cal_vibration';
-      } else {
+      if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
         if (settings.soundOption == NotificationSound.custom &&
             settings.customSoundPath != null) {
-          channelId =
-              (await setupCustomChannel(settings, testMode)) ?? 'cal_silent';
           snd =
               UriAndroidNotificationSound('file://${settings.customSoundPath}');
-        } else {
-          channelId = testMode == AlarmMode.soundAndVibration
-              ? 'cal_sv_${settings.soundOption.name}'
-              : 'cal_snd_${settings.soundOption.name}';
-          if (settings.soundOption != NotificationSound.system)
-            snd = RawResourceAndroidNotificationSound(
-                settings.soundOption.fileName);
+        } else if (settings.soundOption != NotificationSound.system) {
+          snd = RawResourceAndroidNotificationSound(
+              settings.soundOption.fileName);
         }
       }
       Int64List? vib;
-      if (testMode == AlarmMode.vibrationOnly ||
-          testMode == AlarmMode.soundAndVibration)
+      if (mode == AlarmMode.vibrationOnly ||
+          mode == AlarmMode.soundAndVibration)
         vib = settings.vibrationPattern.patternInt64;
+
       final androidDetails = AndroidNotificationDetails(channelId, '테스트 알림',
           importance:
-              testMode == AlarmMode.silent ? Importance.low : Importance.high,
+              mode == AlarmMode.silent ? Importance.low : Importance.high,
           priority: Priority.high,
           sound: snd,
           playSound:
               snd != null || settings.soundOption == NotificationSound.system,
           enableVibration: vib != null,
           vibrationPattern: vib,
-          silent: testMode == AlarmMode.silent);
-      await _plugin.show(9999, '🔔 테스트 알림', '이 일정의 알림은 이렇게 울립니다.',
+          silent: mode == AlarmMode.silent);
+      await _plugin.show(9999, '🔔 테스트 알림', '알림이 이렇게 울립니다.',
           NotificationDetails(android: androidDetails));
     } catch (e) {
       _log('Test Notification Error: $e');
@@ -1093,8 +1073,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ValueNotifier<int>(existingEvent?.colorValue ?? defaultEventColor);
     final alarmN = ValueNotifier<AlarmMinutes>(
         isEdit ? existingEvent.alarmMinutes : AlarmMinutes.none);
+
+    // 💡 [v2.7.0] 일정 개별 알림 세팅을 위한 Notifier 세팅
     final alarmModeN = ValueNotifier<AlarmMode>(
-        isEdit ? existingEvent.eventAlarmMode : AlarmMode.soundAndVibration);
+        isEdit ? existingEvent.eventAlarmMode : _appSettings.effectiveMode);
+    final soundN = ValueNotifier<NotificationSound>(
+        isEdit ? existingEvent.soundOption : _appSettings.soundOption);
+    final vibN = ValueNotifier<VibrationPattern>(isEdit
+        ? existingEvent.vibrationPattern
+        : _appSettings.vibrationPattern);
+    final customPathN = ValueNotifier<String?>(
+        isEdit ? existingEvent.customSoundPath : _appSettings.customSoundPath);
+
+    Future<void> pickEventCustomSound() async {
+      final status = await Permission.audio.request();
+      if (!status.isGranted) await Permission.storage.request();
+      FilePickerResult? result = await FilePicker.platform
+          .pickFiles(type: FileType.audio, allowMultiple: false);
+      if (result != null && result.files.single.path != null) {
+        customPathN.value = result.files.single.path;
+        soundN.value = NotificationSound.custom;
+      }
+    }
 
     showDialog(
         context: context,
@@ -1285,52 +1285,196 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                               FontWeight.w600,
                                                           color: isSel ? Colors.white : (th.isDark ? Colors.white70 : Colors.black87)))));
                                         }).toList()))),
+                            // 💡 [v2.7.0] 개별 일정별 알림 상세 세팅 UI (가로 스크롤 적용으로 공간 절약)
                             ValueListenableBuilder<AlarmMinutes>(
                                 valueListenable: alarmN,
                                 builder: (_, alarm, __) {
                                   if (alarm == AlarmMinutes.none)
                                     return const SizedBox.shrink();
-                                  return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Divider(
-                                            height: 1,
-                                            color: th.isDark
-                                                ? Colors.white12
-                                                : Colors.grey[300]),
-                                        Padding(
-                                            padding: const EdgeInsets.fromLTRB(
-                                                16, 12, 16, 4),
-                                            child: Text('알림 방식',
-                                                style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 13,
+                                  return ValueListenableBuilder<AlarmMode>(
+                                      valueListenable: alarmModeN,
+                                      builder: (_, mode, __) {
+                                        return Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Divider(
+                                                  height: 1,
+                                                  color: th.isDark
+                                                      ? Colors.white12
+                                                      : Colors.grey[300]),
+                                              Padding(
+                                                  padding:
+                                                      const EdgeInsets.fromLTRB(
+                                                          16, 12, 16, 4),
+                                                  child: Text('알림 방식',
+                                                      style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 13,
+                                                          color: th.isDark
+                                                              ? Colors.white54
+                                                              : Colors
+                                                                  .black54))),
+                                              Padding(
+                                                  padding:
+                                                      const EdgeInsets.fromLTRB(
+                                                          16, 0, 16, 12),
+                                                  child: Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 8,
+                                                      children: AlarmMode.values
+                                                          .map((opt) {
+                                                        final isSel =
+                                                            mode == opt;
+                                                        return GestureDetector(
+                                                            onTap: () =>
+                                                                alarmModeN.value =
+                                                                    opt,
+                                                            child: Container(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            12,
+                                                                        vertical:
+                                                                            6),
+                                                                decoration: BoxDecoration(
+                                                                    color: isSel
+                                                                        ? th.primaryAccent.withValues(
+                                                                            alpha:
+                                                                                0.15)
+                                                                        : Colors
+                                                                            .transparent,
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                            20),
+                                                                    border: Border.all(
+                                                                        color: isSel
+                                                                            ? th.primaryAccent
+                                                                            : (th.isDark ? Colors.white24 : Colors.grey.shade400))),
+                                                                child: Text(opt.label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isSel ? th.primaryAccent : (th.isDark ? Colors.white70 : Colors.black87)))));
+                                                      }).toList())),
+                                              if (mode == AlarmMode.soundOnly ||
+                                                  mode ==
+                                                      AlarmMode
+                                                          .soundAndVibration) ...[
+                                                Divider(
+                                                    height: 1,
                                                     color: th.isDark
-                                                        ? Colors.white54
-                                                        : Colors.black54))),
-                                        Padding(
-                                            padding: const EdgeInsets.fromLTRB(
-                                                16, 0, 16, 12),
-                                            child:
-                                                ValueListenableBuilder<
-                                                        AlarmMode>(
-                                                    valueListenable: alarmModeN,
-                                                    builder: (_, mode, __) =>
-                                                        Wrap(
-                                                            spacing: 8,
-                                                            runSpacing: 8,
-                                                            children: AlarmMode
-                                                                .values
-                                                                .map((opt) {
+                                                        ? Colors.white12
+                                                        : Colors.grey[300]),
+                                                Padding(
+                                                    padding: const EdgeInsets
+                                                        .fromLTRB(
+                                                        16, 12, 16, 4),
+                                                    child: Text('알림 소리',
+                                                        style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 13,
+                                                            color: th.isDark
+                                                                ? Colors.white54
+                                                                : Colors
+                                                                    .black54))),
+                                                SingleChildScrollView(
+                                                    scrollDirection:
+                                                        Axis.horizontal,
+                                                    padding: const EdgeInsets
+                                                        .fromLTRB(
+                                                        16, 0, 16, 12),
+                                                    child: ValueListenableBuilder<
+                                                            NotificationSound>(
+                                                        valueListenable: soundN,
+                                                        builder: (_, snd, __) =>
+                                                            Row(
+                                                                children:
+                                                                    NotificationSound
+                                                                        .values
+                                                                        .map(
+                                                                            (opt) {
                                                               final isSel =
-                                                                  mode == opt;
+                                                                  snd == opt;
+                                                              return GestureDetector(
+                                                                  onTap: () {
+                                                                    if (opt ==
+                                                                        NotificationSound
+                                                                            .custom) {
+                                                                      pickEventCustomSound();
+                                                                    } else {
+                                                                      soundN.value =
+                                                                          opt;
+                                                                    }
+                                                                  },
+                                                                  child: Container(
+                                                                      margin: const EdgeInsets
+                                                                          .only(
+                                                                          right:
+                                                                              8),
+                                                                      padding: const EdgeInsets
+                                                                          .symmetric(
+                                                                          horizontal:
+                                                                              12,
+                                                                          vertical:
+                                                                              6),
+                                                                      decoration: BoxDecoration(
+                                                                          color: isSel
+                                                                              ? th.primaryAccent.withValues(alpha: 0.15)
+                                                                              : Colors.transparent,
+                                                                          borderRadius: BorderRadius.circular(20),
+                                                                          border: Border.all(color: isSel ? th.primaryAccent : (th.isDark ? Colors.white24 : Colors.grey.shade400))),
+                                                                      child: Text(opt == NotificationSound.custom && isSel && customPathN.value != null ? '🎵 ${customPathN.value!.split('/').last}' : opt.label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isSel ? th.primaryAccent : (th.isDark ? Colors.white70 : Colors.black87)))));
+                                                            }).toList())))
+                                              ],
+                                              if (mode ==
+                                                      AlarmMode.vibrationOnly ||
+                                                  mode ==
+                                                      AlarmMode
+                                                          .soundAndVibration) ...[
+                                                Divider(
+                                                    height: 1,
+                                                    color: th.isDark
+                                                        ? Colors.white12
+                                                        : Colors.grey[300]),
+                                                Padding(
+                                                    padding: const EdgeInsets
+                                                        .fromLTRB(
+                                                        16, 12, 16, 4),
+                                                    child: Text('진동 패턴',
+                                                        style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 13,
+                                                            color: th.isDark
+                                                                ? Colors.white54
+                                                                : Colors
+                                                                    .black54))),
+                                                SingleChildScrollView(
+                                                    scrollDirection:
+                                                        Axis.horizontal,
+                                                    padding: const EdgeInsets
+                                                        .fromLTRB(
+                                                        16, 0, 16, 12),
+                                                    child: ValueListenableBuilder<
+                                                            VibrationPattern>(
+                                                        valueListenable: vibN,
+                                                        builder: (_, vib, __) =>
+                                                            Row(
+                                                                children:
+                                                                    VibrationPattern
+                                                                        .values
+                                                                        .map(
+                                                                            (opt) {
+                                                              final isSel =
+                                                                  vib == opt;
                                                               return GestureDetector(
                                                                   onTap: () =>
-                                                                      alarmModeN
-                                                                              .value =
+                                                                      vibN.value =
                                                                           opt,
                                                                   child: Container(
+                                                                      margin: const EdgeInsets
+                                                                          .only(
+                                                                          right:
+                                                                              8),
                                                                       padding: const EdgeInsets
                                                                           .symmetric(
                                                                           horizontal:
@@ -1345,7 +1489,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                                           border: Border.all(color: isSel ? th.primaryAccent : (th.isDark ? Colors.white24 : Colors.grey.shade400))),
                                                                       child: Text(opt.label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isSel ? th.primaryAccent : (th.isDark ? Colors.white70 : Colors.black87)))));
                                                             }).toList())))
-                                      ]);
+                                              ]
+                                            ]);
+                                      });
                                 })
                           ])),
                   const SizedBox(height: 18),
@@ -1400,6 +1546,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           eT =
                               '${endTimeN.value.hour.toString().padLeft(2, '0')}:${endTimeN.value.minute.toString().padLeft(2, '0')}';
                         }
+
                         final newEvent = CalendarEvent(
                             id: isEdit
                                 ? existingEvent.id
@@ -1413,6 +1560,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             endTime: eT,
                             alarmMinutes: alarmN.value,
                             eventAlarmMode: alarmModeN.value,
+                            soundOption: soundN.value,
+                            vibrationPattern: vibN.value,
+                            customSoundPath: customPathN.value,
                             isAlarmOn: isEdit ? existingEvent.isAlarmOn : true);
                         const int maxLimit = 500;
                         if (!isEdit && _allEvents.length >= maxLimit) {
@@ -1429,8 +1579,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           _allEvents.add(newEvent);
                         }
                         await EventStorage.saveAll(_allEvents);
-                        final alarmDt = newEvent.alarmDateTime;
-                        if (alarmDt != null && newEvent.isAlarmOn) {
+                        if (newEvent.alarmDateTime != null &&
+                            newEvent.isAlarmOn) {
                           await NotificationService.scheduleEventAlarm(
                               event: newEvent, settings: _appSettings);
                         }
@@ -1450,6 +1600,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       colorN.dispose();
       alarmN.dispose();
       alarmModeN.dispose();
+      soundN.dispose();
+      vibN.dispose();
+      customPathN.dispose();
     });
   }
 
@@ -1731,7 +1884,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   fontWeight: FontWeight.bold,
                   color: th.sectionLabelText)),
           const Spacer(),
-          Text('전체 무음',
+          Text('무음모드',
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -2070,7 +2223,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
             child: _buildListItemByTheme(_selectedEvents[i])));
   }
 
-  // 💡 [v2.6.0] 개별 알림 아이콘: 전체 무음(globalSilentMode) 활성화 시 Zz 아이콘으로 일괄 변경
   Widget _buildTitleColumn(CalendarEvent event, String dateInfo,
       {Color? titleColor, double titleSize = 15, double dateSize = 12}) {
     final isGlobalSilent = _appSettings.globalSilentMode;
@@ -2089,7 +2241,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onTap: () async {
               if (isGlobalSilent) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('전체 무음 상태입니다. 먼저 전체 무음을 해제해주세요.'),
+                    content: Text('무음모드 상태입니다. 먼저 무음모드를 해제해주세요.'),
                     duration: Duration(seconds: 2)));
                 return;
               }
@@ -2099,14 +2251,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     .copyWith(isAlarmOn: !_allEvents[idx].isAlarmOn);
                 _allEvents[idx] = updatedEvent;
                 await EventStorage.saveAll(_allEvents);
-
                 if (updatedEvent.isAlarmOn) {
                   await NotificationService.scheduleEventAlarm(
                       event: updatedEvent, settings: _appSettings);
                 } else {
                   await NotificationService.cancelAlarm(updatedEvent.id);
                 }
-
                 setState(() {
                   final selIdx =
                       _selectedEvents.indexWhere((e) => e.id == event.id);
@@ -2120,7 +2270,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 child: Icon(
                     effectiveAlarmOn
                         ? Icons.notifications_active
-                        : Icons.notifications_paused, // 🔕 Zz 모양 수면 알람 아이콘
+                        : Icons.notifications_paused,
                     size: 16,
                     color: effectiveAlarmOn
                         ? th.primaryAccent
@@ -2225,7 +2375,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                         content: Text(
-                                            '전체 무음 상태입니다. 먼저 전체 무음을 해제해주세요.'),
+                                            '무음모드 상태입니다. 먼저 무음모드를 해제해주세요.'),
                                         duration: Duration(seconds: 2)));
                                 return;
                               }
@@ -2340,17 +2490,8 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
         .pickFiles(type: FileType.audio, allowMultiple: false);
     if (result != null && result.files.single.path != null) {
       final newPath = result.files.single.path!;
-      if (_s.lastCustomChannelId != null) {
-        final impl = NotificationService._plugin
-            .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>();
-        await impl?.deleteNotificationChannel(_s.lastCustomChannelId!);
-      }
       _update(_s.copyWith(
-          soundOption: NotificationSound.custom,
-          customSoundPath: newPath,
-          lastCustomChannelId:
-              'cal_custom_${newPath.hashCode}_${_s.effectiveMode.index}'));
+          soundOption: NotificationSound.custom, customSoundPath: newPath));
     }
   }
 
@@ -2376,12 +2517,25 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                           decoration: BoxDecoration(
                               color: Colors.grey[400],
                               borderRadius: BorderRadius.circular(2)))),
-                  Text('⚙️ 앱 설정',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: _textColor)),
-                  const SizedBox(height: 20),
+                  // 💡 [v2.7.0] 설정창 우측 상단 '완료' 버튼 추가
+                  Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const SizedBox(width: 48),
+                        Text('⚙️ 앱 설정',
+                            style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: _textColor)),
+                        TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text('완료',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: widget.accent)))
+                      ]),
+                  const SizedBox(height: 10),
                   _sectionTitle('📅 달력 설정'),
                   _switchTile(
                       icon: Icons.calendar_today_outlined,
@@ -2400,7 +2554,7 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                       onChanged: (v) => _update(_s.copyWith(masterEnabled: v))),
                   if (_s.masterEnabled) ...[
                     const SizedBox(height: 16),
-                    _sectionTitle('알람 소리 및 진동 기본값 (일정 추가 시 적용)'),
+                    _sectionTitle('새 일정 추가 시 알람 소리/진동 기본값'),
                     _switchTile(
                         icon: Icons.volume_up_outlined,
                         label: '소리 허용',
@@ -2417,7 +2571,7 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                             _update(_s.copyWith(vibrationEnabled: v))),
                     if (_s.soundEnabled) ...[
                       const SizedBox(height: 16),
-                      _sectionTitle('소리 설정'),
+                      _sectionTitle('기본 소리 설정'),
                       ...NotificationSound.values.map((s) {
                         if (s == NotificationSound.custom) {
                           final isCustomSel =
@@ -2512,7 +2666,7 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                     ],
                     if (_s.vibrationEnabled) ...[
                       const SizedBox(height: 16),
-                      _sectionTitle('진동 패턴'),
+                      _sectionTitle('기본 진동 패턴'),
                       ...VibrationPattern.values
                           .map((p) => _vibrationPatternTile(p))
                     ]
@@ -2523,7 +2677,7 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                         width: double.infinity,
                         child: ElevatedButton.icon(
                             icon: const Icon(Icons.play_circle_fill_outlined),
-                            label: const Text('현재 설정으로 알림 테스트해보기'),
+                            label: const Text('현재 기본 설정으로 알림 테스트'),
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: widget.accent,
                                 foregroundColor: Colors.white,
