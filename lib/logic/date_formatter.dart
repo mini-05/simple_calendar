@@ -41,15 +41,16 @@ class DateFormatter {
     return '${e.startDt.month}.${e.startDt.day} $sT ~ ${e.endDt.month}.${e.endDt.day} $eT';
   }
 
+  /// [설계 의도] 일요일 셀에만 표시하는 음력 레이블.
+  /// showLunar가 true일 때 해당 날짜의 음력을 '음M.D' 형식으로 항상 반환.
+  /// 예) 양력 2025-06-15(일) → 음력 5월 20일 → '음5.20'
   static String? getLunarLabel(DateTime solarDate, bool showLunar) {
-    if (!showLunar) {
-      return null;
-    }
+    if (!showLunar) return null;
     try {
       final lunar = Lunar.fromDate(solarDate);
-      return '${lunar.getMonth()}. ${lunar.getDay()}';
+      return '음${lunar.getMonth()}.${lunar.getDay()}';
     } catch (_) {
-      return '';
+      return null;
     }
   }
 

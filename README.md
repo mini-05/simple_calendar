@@ -1,110 +1,422 @@
-# My Calendar App v2.7.0
+# 📅 My Calendar — v3.6.0
 
-Welcome to the **My Calendar App**! This application is designed to provide the ultimate schedule management experience while keeping your personal data completely safe with military-grade encryption.
-
-## 📖 How to Use the App (User Guide)
-
-### 1. Adding and Managing Events
-
-* **Smart Event Addition:** Click the floating `+` button at the bottom right to add an event.
-* **Auto Time Correction:** If you accidentally set the end time earlier than the start time, the app will smartly auto-correct the end time to be 1 hour after the start time.
-* **Dynamic Calendar View:** Don't worry about having too many events in one day! The calendar cell will dynamically adjust text sizes or switch to a `+N` view to ensure your calendar always looks clean and beautiful.
-
-### 2. Personalized Alarm Settings (Per Event)
-
-* **Custom Sounds & Vibrations:** You can now set a different alarm sound and vibration pattern for *each individual event*.
-* **Use Your Own Music:** Want to wake up to your favorite song? Select the `🎵 Custom Local Music` option to pick an mp3 file directly from your phone.
-* **Sensory Vibrations:** Choose from elegant haptic patterns like "Heartbeat", "Crescendo", or "Long Pulse".
-
-### 3. Quick Alarm Toggle
-
-* **One-Touch ON/OFF:** In your daily event list, you will see a bell icon (🔔) next to events with alarms. Simply tap this icon to instantly turn the alarm off. It will visually change to a sleeping bell (🔕/Zz) so you know it's muted.
-
-### 4. Global Silent Mode
-
-* **Meeting/Study Mode:** Need to silence all alarms immediately? Toggle the **"Global Silent"** switch located at the top right of your event list.
-* **Visual Sync:** When Global Silent is ON, all individual event alarms will automatically show the sleeping bell icon (🔕) to indicate they are suppressed. Turn it OFF, and they will revert to their original state.
-
-### 5. Custom Themes
-
-* Click the menu icon (≡) on the top right of the app bar to change the app's theme. Choose from Apple, Samsung, Naver, Dark Neon, and more. Your theme choice is securely saved and restored when you restart the app.
+> Flutter 기반 한국형 개인 캘린더 앱.  
+> 공휴일 자동 표시, 음력, 초성 검색, ICS 백업, 다중 테마, 스케줄 알림을 지원합니다.
 
 ---
 
-## 🛠️ Change Log (v2.7.0)
+## 목차
 
-### 🧑‍💻 User Perspective
-
-* **Global Silent Switch:** Added a master toggle to easily mute/unmute all event alarms at once.
-* **Instant Alarm Toggle:** Tapping the bell icon next to an event now instantly turns the alarm ON/OFF with a visual change to a 'Zz' (paused) icon.
-* **Per-Event Customization:** Users can now set entirely different sounds (including local music files) and vibration patterns for every single event.
-* **Dynamic Rendering:** Improved the calendar cell UI to smartly adjust text size based on the number of events, preventing visual overflow.
-* **Settings UI:** Added a 'Done' button in the settings menu for easier navigation.
-
-### 👨‍💻 Developer Perspective
-
-* **Dynamic Notification Channels (`_ensureChannel`):** Implemented an advanced dynamic channel generator to support infinite combinations of custom sounds and vibration patterns per event without channel clashing.
-* **Windows Debug Bypass:** Added `Platform.isAndroid || Platform.isIOS` checks to bypass `flutter_local_notifications` initialization on Windows, preventing crashes during UI testing.
-* **UI Linter Fixes:** Cleaned up dead code (e.g., removing unused `_buildEffectiveModeBadge`) and unnecessary imports for a 0-warning, 0-error clean build.
-* **Military-Grade Security Maintained:** * Kept AES-256 GCM hardware encryption (`flutter_secure_storage`).
-* Maintained `FLAG_SECURE` to block screenshots and background preview leaks.
-* Maintained exact alarm permission error fallbacks and rate limits (max 500 events).
-
-
-
-# My Calendar App v2.7.0
-
-**My Calendar App**에 오신 것을 환영합니다! 이 앱은 군사급 암호화 기술로 사용자의 개인 데이터를 완벽하게 보호하면서도, 최고의 일정 관리 경험을 제공하도록 설계되었습니다.
-
-## 📖 사용자 가이드 (이용 방법)
-
-### 1. 스마트한 일정 추가 및 관리
-
-* **일정 추가:** 우측 하단의 `+` 버튼을 눌러 새로운 일정을 등록하세요.
-* **시간 자동 보정:** 실수로 종료 시간을 시작 시간보다 과거로 설정하더라도 걱정하지 마세요. 앱이 똑똑하게 종료 시간을 시작 시간 1시간 뒤로 자동 조정해 줍니다.
-* **다이내믹 달력 뷰:** 하루에 일정이 너무 많아도 달력이 지저분해지지 않습니다. 앱이 스스로 일정 개수를 파악하여 글자 크기를 줄이거나 남은 일정을 `+N` 형태로 깔끔하게 요약해서 보여줍니다.
-
-### 2. 일정별 맞춤 알림 설정
-
-* **개별 소리 및 진동:** 이제 앱 전체 설정뿐만 아니라, **각각의 일정마다** 서로 다른 알림 소리와 진동을 설정할 수 있습니다.
-* **내 휴대폰 음악 사용:** 중요한 약속에는 내가 좋아하는 노래를 알람으로 설정해 보세요! `🎵 내 휴대폰 음악 사용`을 선택해 폰에 있는 mp3 파일을 직접 고를 수 있습니다.
-* **감성적인 진동:** 단순한 떨림이 아닌 '심장 박동', '크레센도' 등 고급스러운 햅틱 피드백을 지원합니다.
-
-### 3. 원터치 알림 끄기 (빠른 제어)
-
-* 일정 목록을 보면 알림이 설정된 일정 옆에 **종 모양(🔔) 아이콘**이 있습니다. 이 아이콘을 가볍게 터치하면 설정 창에 들어갈 필요 없이 즉시 알람이 꺼지고, 아이콘이 **수면 모드(🔕/Zz)**로 바뀝니다. 다시 누르면 켜집니다.
-
-### 4. 전체 무음 모드 (회의/수업 시간 필수)
-
-* 일정 목록 우측 상단에 있는 **'전체 무음' 스위치**를 켜보세요.
-* 개별 일정이 소리나 진동으로 설정되어 있더라도, 이 스위치를 켜면 **모든 알림이 강제로 무음 처리**됩니다.
-* 스위치를 켜면 목록의 모든 종 모양 아이콘이 수면 모드(🔕)로 변하여 시각적으로도 안심할 수 있습니다. 스위치를 끄면 원래 설정대로 완벽하게 복구됩니다.
-
-### 5. 다양한 테마
-
-* 상단 앱바 우측의 메뉴 아이콘(≡)을 눌러 애플, 삼성, 네이버, 다크 네온 등 다양한 테마로 캘린더를 꾸며보세요. 한 번 설정한 테마는 앱을 껐다 켜도 안전하게 유지됩니다.
+1. [주요 기능](#주요-기능)
+2. [프로젝트 구조](#프로젝트-구조)
+3. [아키텍처 설계 원칙](#아키텍처-설계-원칙)
+4. [파일별 역할](#파일별-역할)
+5. [테마 시스템](#테마-시스템)
+6. [공휴일 시스템](#공휴일-시스템)
+7. [데이터 흐름](#데이터-흐름)
+8. [설치 및 빌드](#설치-및-빌드)
+9. [사용 라이브러리](#사용-라이브러리)
+10. [설계 의도 및 주요 결정 사항](#설계-의도-및-주요-결정-사항)
+11. [버전 히스토리](#버전-히스토리)
 
 ---
 
-## 🛠️ 수정 및 업데이트 사항 (v2.7.0)
+## 주요 기능
 
-### 🧑‍💻 이용자 관점 (User)
+### 📆 달력
+- **3가지 네비게이션 모드**: 화살표 버튼 / 상하 스와이프 / 좌우 스와이프
+- **음력 표시**: 일요일 셀에 음력 1일·15일·30일만 표시 (셀 공간 효율 최적화)
+- **공휴일 자동 표시**: 양력 고정 공휴일, 음력 연휴(설날·추석·부처님오신날), 대체공휴일 포함
+- **슬롯 배정 알고리즘**: 다중일 이벤트가 겹쳐도 바 형태로 올바르게 정렬
+- **Viewport 최적화**: 현재 달 기준 앞뒤 12개월만 인덱싱하여 메모리·연산 최소화
 
-* **전체 무음 스위치 추가:** 탭 한 번으로 모든 일정의 알람 소리와 진동을 차단하는 마스터 스위치를 추가했습니다.
-* **직관적인 알림 토글:** 일정 목록의 알림 아이콘(🔔)을 직접 터치하여 알람을 켜고 끌 수 있으며, 꺼졌을 때 수면(Zz) 아이콘으로 변경되어 상태를 쉽게 알 수 있습니다.
-* **일정별 고유 알림 지정:** 각각의 일정마다 내 폰에 있는 다른 음악 파일이나 다른 진동 패턴을 독립적으로 설정할 수 있게 되었습니다.
-* **반응형 다이내믹 렌더링:** 달력 셀 안에 일정이 많아질 경우, 글자 크기를 동적으로 줄이거나 `+N`으로 묶어 표현하여 화면이 깨지는 현상을 완벽히 방지했습니다.
-* **설정 화면 사용성 개선:** 설정 창 우측 상단에 '완료' 버튼을 추가하여 쉽게 창을 닫을 수 있게 되었습니다.
+### 📝 일정 관리
+- 일정 추가 / 수정 / 삭제
+- 하루 종일 / 시간 지정 / 다중일 이벤트
+- 5가지 색상 선택
+- 최대 500개 등록 제한
 
-### 👨‍💻 개발자 관점 (Developer)
+### 🔔 알림
+- 7단계 알림 시간 (정각 / 5·10·30분 전 / 1시간·1일 전)
+- 4가지 알람 모드: 무음 / 소리 / 진동 / 소리+진동
+- 5가지 알림 소리 (시스템 기본 / 종소리 / 벨소리 / 새소리 / 내 음악 파일)
+- 4가지 진동 패턴
+- 전역 무음 모드 토글
+- 알림 테스트 기능
 
-* **동적 알림 채널 시스템(`_ensureChannel`):** 각 일정마다 커스텀 음원과 진동 패턴이 다를 경우, 안드로이드 Notification Channel이 꼬이지 않도록 해시(Hash)값을 이용해 채널을 무한대로 동적 생성하고 관리하는 로직을 구축했습니다.
-* **PC 빌드 방어 로직 (Platform Guard):** Windows 데스크톱 환경에서 UI 디자인 디버깅 시 `flutter_local_notifications` 미구현 에러로 인해 앱이 크래시(강제 종료)되는 현상을 막기 위해 OS 분기 처리(`_isMobile`)를 완벽히 적용했습니다.
-* **Linter Warning Zero 최적화:** 사용되지 않는 데드 코드(Dead Code)와 불필요한 import 패키지를 모두 제거하여 무결점 클린 코드를 달성했습니다.
-* **군사급 보안 아키텍처 유지:** * `flutter_secure_storage`를 통한 하드웨어 레벨의 AES-256 데이터 암호화 로직 유지.
-* 안드로이드 네이티브 단의 `FLAG_SECURE`를 이용한 스크린샷 및 화면 녹화, 백그라운드 유출 방어 기믹 유지.
-* 메모리 오버플로우 방지를 위한 이벤트 Rate Limit(최대 500개 제한) 유지.
+### 🔍 검색
+- **초성 검색** 지원 (예: `ㅎㄱ` → `회의`, `ㅎㄱ장`)
+- 띄어쓰기 무시 검색
+- 검색 결과 탭 시 해당 날짜로 이동
 
+### 💾 백업 / 복구
+- **ICS 내보내기**: 구글 캘린더·애플 캘린더 호환 표준 형식
+- **ICS 가져오기**: 기존 데이터와 병합
+- 보안 저장소 (`flutter_secure_storage`) 사용
 
+### 🎨 테마
+| 테마 | 스타일 |
+|------|--------|
+| 📱 삼성 캘린더 | 텍스트 바 이벤트, 좌상단 정렬 |
+| 🍎 애플 캘린더 | 측면 컬러 바, 미니멀 |
+| 🇳 네이버 캘린더 | 텍스트 바, 그린 계열 |
+| ✅ 투두 스카이 | 다크 패널, 둥근 카드 |
+| 🌙 다크 네온 | 다크 + 네온 퍼플 |
+| ☁️ 클래식 블루 | 밝은 블루 카드 |
 
 ---
+
+## 프로젝트 구조
+
+```
+lib/
+├── main.dart                          # 앱 진입점, NotificationService 초기화
+│
+├── models/
+│   └── models.dart                    # 데이터 모델 및 enum 전체
+│
+├── theme/
+│   └── app_theme.dart                 # 테마 추상 클래스 + 6개 구현체
+│
+├── logic/                             # ★ Flutter 의존성 0 — 순수 Dart
+│   ├── date_formatter.dart            # 날짜 포맷, 음력 레이블, 초성 추출
+│   ├── slot_calculator.dart           # 이벤트 슬롯 배정 알고리즘
+│   └── holidays.dart                  # OCP 기반 공휴일 생성 시스템
+│
+├── services/
+│   └── services.dart                  # 저장소, 알림, ICS 서비스
+│
+└── ui/
+    └── calendar_screen.dart           # 메인 화면 + 설정 시트 + 검색
+
+test/
+├── logic/
+│   ├── event_slot_calculator_test.dart
+│   └── date_formatter_test.dart
+├── models/
+│   ├── app_settings_test.dart
+│   └── calendar_event_test.dart
+└── services/
+    └── event_storage_test.dart
+```
+
+---
+
+## 아키텍처 설계 원칙
+
+### 1. 단방향 의존성 (순환 참조 0)
+
+```
+models/ ← logic/ ← services/ ← ui/
+theme/  ←─────────────────────┘
+```
+
+- `logic/` 레이어는 Flutter 패키지를 import하지 않음 → `dart test`로 에뮬레이터 없이 테스트 가능
+- `models/`는 어떤 레이어도 import하지 않음
+
+### 2. OCP (개방-폐쇄 원칙)
+
+**테마 시스템**: 새 테마 추가 시 `CalendarTheme`을 구현하는 class만 작성하면 되고, `calendar_screen.dart`를 수정할 필요 없음.
+
+```dart
+// 새 테마 추가 예시 — calendar_screen 수정 불필요
+class MyCustomTheme extends CalendarTheme {
+  @override AppTheme get type => AppTheme.myCustom;
+  @override Widget buildEventListItem({...}) { ... }
+  @override Widget buildScaffoldLayout({...}) { ... }
+  // hasRoundedCard, bottomSheetBg 등 필요한 것만 override
+}
+```
+
+**공휴일 시스템**: 새 공휴일 규칙 추가 시 `HolidayProvider`를 구현하고 `HolidayUtil._baseProviders`에 추가.
+
+```dart
+// 예: 어버이날 추가 시 기존 클래스 수정 없이
+class ParentsDayProvider implements HolidayProvider { ... }
+// HolidayUtil에만 추가
+static final _baseProviders = [
+  SolarHolidayProvider(),
+  LunarHolidayProvider(),
+  ParentsDayProvider(), // ← 이것만 추가
+];
+```
+
+### 3. 다형성 (Polymorphism)
+
+`CalendarTheme`의 `buildEventListItem()`과 `buildScaffoldLayout()`이 테마별로 완전히 다른 UI를 렌더링. `calendar_screen.dart`의 호출부는 `_th.buildEventListItem(...)` 한 줄로 통일.
+
+### 4. 의존성 주입 (Dependency Injection)
+
+`SlotCalculator.calculate()`는 공휴일 생성 로직(`HolidayUtil`)을 직접 호출하지 않고, 외부에서 생성된 공휴일 리스트를 주입받음. `logic/` 내부에서 `logic/` 간 의존성 없음.
+
+```dart
+// calendar_screen에서 공휴일 생성 후 주입
+final holidays = _appSettings.showHolidays
+    ? HolidayUtil.generateHolidaysForWindow(minDate, maxDate) : null;
+SlotCalculator.calculate(all, _windowCenter, _slotMap, firstLoad, holidays);
+```
+
+---
+
+## 파일별 역할
+
+### `models/models.dart`
+| 클래스/Enum | 역할 |
+|------------|------|
+| `AppTheme` | 테마 식별 enum |
+| `CalendarNavMode` | 달력 네비게이션 모드 (arrow / swipeVertical / swipeHorizontal) |
+| `AlarmMode` | 알림 방식 (silent / soundOnly / vibrationOnly / soundAndVibration) |
+| `NotificationSound` | 알림 소리 종류 |
+| `VibrationPattern` | 진동 패턴 |
+| `AlarmMinutes` | 알림 시간 (none / 0 / 5 / 10 / 30 / 60 / 1440분) |
+| `AppSettings` | 앱 전체 설정 (toJson / fromJson / copyWith) |
+| `CalendarEvent` | 일정 모델 (toJson / fromJson / copyWith / computed properties) |
+| `_safeEnum<T>` | enum 역직렬화 시 index 범위 초과 크래시 방지 (라이브러리 private) |
+
+**`CalendarEvent` 주요 computed properties:**
+- `isHoliday`: `id < 0` 이면 공휴일 (공휴일 ID는 음수로 생성)
+- `isMultiDay`: 시작/종료 날짜가 다른 경우
+- `alarmDateTime`: 알림 발생 시각 계산
+
+### `theme/app_theme.dart`
+`abstract class CalendarTheme`의 주요 속성:
+
+| 속성 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `isDark` | `bool` | `false` | 다크 모드 여부 |
+| `showTextInside` | `bool` | `false` | 셀 안에 텍스트 바 표시 (삼성·네이버 방식) |
+| `hasRoundedCard` | `bool` | `false` | 달력을 둥근 카드로 감쌈 (투두스카이·다크네온) |
+| `bottomSheetBg` | `Color?` | `null` | 바텀시트 전용 배경색 |
+| `cellTextAlignment` | `Alignment` | `center` | 셀 내 텍스트 정렬 방향 |
+
+### `logic/date_formatter.dart`
+| 메서드 | 설명 |
+|--------|------|
+| `dateKey(DateTime)` | `yyyy-MM-dd` 포맷 키 생성 |
+| `formatDateKorean(DateTime)` | `2025년 6월 15일 (일)` 형식 |
+| `formatHHmm(String)` | `HH:mm` → `오전/오후 H:MM` 변환 |
+| `makeTimeString(CalendarEvent)` | 일정 목록의 시간 부제목 생성 |
+| `getLunarLabel(DateTime, bool)` | 음력 1일·15일·30일이면 레이블 반환, 나머지는 null |
+| `getChosung(String)` | 한국어 초성 추출 (검색용) |
+
+### `logic/slot_calculator.dart`
+이벤트 슬롯 배정 알고리즘.
+
+- 다중일 이벤트 우선 배치 (기간 긴 순서)
+- `prevSlotMap` 재사용: 이벤트 수정 후에도 기존 슬롯 위치 유지
+- 날짜별 `slot 순` 정렬 반환
+- 공휴일 이벤트는 외부에서 주입받아 내부 의존성 없음
+
+### `logic/holidays.dart`
+OCP 기반 3단계 공휴일 생성:
+
+1. `SolarHolidayProvider`: 양력 고정 8개 (신정·삼일절·어린이날·현충일·광복절·개천절·한글날·크리스마스)
+2. `LunarHolidayProvider`: 음력 연휴 (설날 3일·추석 3일·부처님오신날)
+3. `SubstituteHolidayProvider`: 2023년 개정 대체공휴일 규칙
+
+### `services/services.dart`
+| 클래스 | 역할 |
+|--------|------|
+| `NotificationService` | 알림 초기화·스케줄·취소·테스트·권한 요청 |
+| `AppSettingsStorage` | 설정 암호화 저장/로드 |
+| `EventStorage` | 이벤트 암호화 저장/로드 (Isolate compute 직렬화) |
+| `IcsService` | ICS 표준 내보내기·가져오기 |
+| `appLog()` | 릴리즈 빌드에서 로그 차단 |
+
+---
+
+## 테마 시스템
+
+### CalendarTheme 상속 구조
+
+```
+CalendarTheme (abstract)
+├── SamsungTheme       — showTextInside: true, cellTextAlignment: topLeft
+├── AppleTheme         — 측면 컬러 바, 미니멀 리스트
+├── NaverTheme         — showTextInside: true, 그린 계열
+├── TodoSkyTheme       — hasRoundedCard: true, bottomSheetBg 별도 지정
+└── DefaultCardTheme   — darkNeon(hasRoundedCard: true), classicBlue 공용
+```
+
+### 테마 추가 방법
+
+1. `models.dart`의 `AppTheme` enum에 값 추가
+2. `app_theme.dart`에 `class NewTheme extends CalendarTheme` 작성
+3. `AppThemeExt.themeData` switch에 case 추가
+4. 다른 파일 수정 불필요
+
+---
+
+## 공휴일 시스템
+
+### 공휴일 ID 규칙
+공휴일 이벤트는 `id < 0` (음수). `IdGenerator`가 -10000부터 감소하며 할당.  
+`CalendarEvent.isHoliday` getter로 구분.
+
+### 표시 규칙
+- 공휴일 날짜의 일자 텍스트: `Colors.redAccent` (일요일과 동일)
+- 공휴일 이벤트는 수정/삭제/알림 불가 (`isHoliday` 체크로 차단)
+- 설날·추석은 다중일 바로 표시, 중앙 날짜에 제목 표시
+
+### Viewport 필터링
+`_rebuildIndex` 호출 시 현재 달 기준 ±12개월 창(window)만 생성.  
+페이지 이동으로 창 밖 6개월 이상 벗어나면 자동 재계산.
+
+---
+
+## 데이터 흐름
+
+```
+사용자 액션
+    │
+    ▼
+_CalendarScreenState
+    │
+    ├─ _allEvents (List<CalendarEvent>) — 실제 저장된 이벤트
+    │
+    ├─ _rebuildIndex()
+    │       │
+    │       ├─ HolidayUtil.generateHolidaysForWindow()  ← holidays.dart
+    │       │
+    │       └─ SlotCalculator.calculate()              ← slot_calculator.dart
+    │               │
+    │               └─ SlotCalculationResult
+    │                       ├─ eventsByDate  (Map<String, List<CalendarEvent>>)
+    │                       ├─ slotMap       (Map<int, int>)
+    │                       └─ windowEvents  (List<CalendarEvent>)
+    │
+    ├─ _eventsByDate → _buildCustomCell() → 달력 셀 렌더링
+    │
+    └─ _selectedEvents → ListView → 일정 목록 렌더링
+```
+
+### 저장 흐름
+
+```
+CalendarEvent
+    │
+    ├─ toJson() → jsonEncode (Isolate compute)
+    │                   │
+    │                   └─ FlutterSecureStorage (AES 암호화)
+    │
+    └─ fromJson() ← jsonDecode (Isolate compute)
+                         │
+                         └─ FlutterSecureStorage (복호화)
+```
+
+---
+
+## 설치 및 빌드
+
+### 요구 사항
+- Flutter SDK `>=3.3.0`
+- Dart SDK `>=3.3.0 <4.0.0`
+- Java 17 (Android 빌드)
+- Android SDK (minSdk 21 권장)
+
+### 로컬 실행
+
+```bash
+# 의존성 설치
+flutter pub get
+
+# 디버그 실행
+flutter run
+
+# 릴리즈 APK 빌드 (arm64)
+flutter build apk --release --target-platform android-arm64
+
+# App Bundle 빌드
+flutter build appbundle --release
+```
+
+### CI/CD (GitHub Actions)
+
+`main` / `master` 브랜치 push 시 자동 빌드.  
+결과물: `app-release.apk`, `app-release.aab` (Actions Artifacts)
+
+```yaml
+# .github/workflows/build_apk.yml
+on:
+  push:
+    branches: [ "main", "master" ]
+```
+
+### Android 권한 (`AndroidManifest.xml` 필요)
+
+```xml
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+<uses-permission android:name="android.permission.VIBRATE"/>
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+<uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+```
+
+---
+
+## 사용 라이브러리
+
+| 패키지 | 버전 | 용도 |
+|--------|------|------|
+| `table_calendar` | ^3.1.2 | 달력 위젯 (arrow 모드) |
+| `flutter_secure_storage` | ^9.0.0 | AES 암호화 로컬 저장소 |
+| `flutter_local_notifications` | ^18.0.0 | 스케줄 알림 |
+| `timezone` | ^0.9.4 | 타임존 처리 |
+| `flutter_timezone` | ^5.0.1 | 기기 타임존 자동 감지 |
+| `file_picker` | ^8.1.0 | 음악 파일·ICS 파일 선택 |
+| `permission_handler` | ^11.3.0 | 런타임 권한 요청 |
+| `lunar` | ^1.7.6 | 양력 → 음력 변환 |
+| `path_provider` | ^2.1.2 | ICS 임시 파일 경로 |
+| `share_plus` | ^7.2.1 | ICS 파일 공유 |
+| `flutter_localizations` | SDK | 한국어 로케일 |
+
+---
+
+## 설계 의도 및 주요 결정 사항
+
+### 음력 표시 설계 의도
+- **표시 위치**: 일요일 셀에만 표시
+  - 평일·토요일 셀은 이벤트 바 공간이 부족해 음력 표시 시 레이아웃 깨짐
+  - 일요일은 주의 시작점으로 시각적으로 의미 있는 기준점
+- **표시 조건**: 음력 1일(초하루)·15일(보름)·30일(그믐)만 표시
+  - 모든 날짜를 표시하면 셀이 과밀해지고 읽기 어려움
+  - 음력 월의 주요 절기(초하루·보름·그믐)만 표시하는 전통 캘린더 방식 채택
+
+### 슬롯 배정 알고리즘
+- 다중일 이벤트 (기간 긴 순서) → 하루 이벤트 순으로 정렬 후 슬롯 배정
+- `prevSlotMap` 재사용: 이벤트를 수정해도 슬롯 위치가 변하지 않아 UX 안정
+- 날짜별 슬롯 순 정렬 후 캐싱
+
+### 공휴일 id 음수 설계
+공휴일을 일반 이벤트와 같은 `List<CalendarEvent>`에 혼합 저장하되, `id < 0`으로 구분. `isHoliday` getter 하나로 모든 분기 처리 가능.
+
+### Viewport 슬라이딩 윈도우
+앱 전체 이벤트 수가 수백 개여도, 인덱싱은 현재 달 기준 ±12개월(25개월)만 수행. 6개월 이상 이동 시 자동 재계산.
+
+### 보안 저장소 키 난독화
+`AppSettingsStorage`와 `EventStorage`의 키를 `String.fromCharCodes([...])` 패턴으로 난독화. 바이너리에서 키 문자열 직접 추출 방지.
+
+---
+
+## 버전 히스토리
+
+### v3.6.0 (현재)
+- **구조**: `logic/` 레이어 신설 — `date_formatter`, `slot_calculator`, `holidays` 분리
+- **OCP 강화**: `CalendarTheme` 다형성 도입 — 테마별 `buildEventListItem()`, `buildScaffoldLayout()` 위임
+- **공휴일**: `HolidayProvider` 인터페이스 기반 OCP 설계 — 양력·음력·대체공휴일 분리
+- **네비게이션**: `swipeHorizontal` 모드 추가 (좌우 스와이프)
+- **결합도 감소**: `SlotCalculator`가 공휴일을 외부 주입받아 `holidays.dart` 의존성 제거
+- **버그 수정**: `_rescheduleAllAlarms`에 공휴일 guard 추가
+- **가독성**: `generateId` 연산자 괄호 명시
+
+### v3.5.0
+- 단일 파일 → `models`, `services`, `theme`, `ui` 4개 파일로 분리
+- Viewport 슬라이딩 윈도우 렌더링 최적화
+- 초성 검색, ICS 백업/복구, 수직 스와이프 추가
+- `defaultEventColor` 전역 상수 위치 `models`로 이동 (순환 참조 해결)
+
+### v3.2.0
+- `logic/` 폴더 신설 (Flutter 의존성 0)
+- 15개 파일 분리, 5개 단위 테스트 파일 작성
+- `EventEditDialog` class화 (CalendarScreen에서 ~400줄 분리)
+- 순환 참조 없는 단방향 의존성 구조 확립

@@ -23,6 +23,12 @@ abstract class CalendarTheme {
   Color? get bottomPanelBg => null;
   bool get isDark => false;
   bool get showTextInside => false;
+
+  /// true이면 달력을 패딩+둥근 카드 박스 안에 감쌉니다 (투두스카이, 다크네온)
+  bool get hasRoundedCard => false;
+
+  /// 바텀시트 배경색. null이면 기본(흰색/다크)으로 처리
+  Color? get bottomSheetBg => null;
   Alignment get cellTextAlignment => Alignment.center;
 
   Widget buildTitleColumn(
@@ -403,6 +409,10 @@ class TodoSkyTheme extends CalendarTheme {
   Color get sectionLabelText => Colors.white;
   @override
   Color get bottomPanelBg => const Color(0xFF2D3142);
+  @override
+  bool get hasRoundedCard => true;
+  @override
+  Color get bottomSheetBg => const Color(0xFF3A3F5C);
 
   @override
   Widget buildScaffoldLayout(
@@ -545,6 +555,7 @@ class DefaultCardTheme extends CalendarTheme {
       _iconColor,
       _sectionLabelText;
   final bool _isDark;
+  final bool _hasRoundedCard;
   DefaultCardTheme(
       this._type,
       this._name,
@@ -562,8 +573,10 @@ class DefaultCardTheme extends CalendarTheme {
       this._iconBg,
       this._iconColor,
       this._sectionLabelText,
-      {bool isDark = false})
-      : _isDark = isDark;
+      {bool isDark = false,
+      bool hasRoundedCard = false})
+      : _isDark = isDark,
+        _hasRoundedCard = hasRoundedCard;
   @override
   AppTheme get type => _type;
   @override
@@ -598,6 +611,8 @@ class DefaultCardTheme extends CalendarTheme {
   Color get sectionLabelText => _sectionLabelText;
   @override
   bool get isDark => _isDark;
+  @override
+  bool get hasRoundedCard => _hasRoundedCard;
 
   @override
   Widget buildEventListItem(
@@ -683,7 +698,8 @@ extension AppThemeExt on AppTheme {
             const Color(0xFF3D3760),
             const Color(0xFF9C6FE4),
             Colors.white,
-            isDark: true);
+            isDark: true,
+            hasRoundedCard: true);
       case AppTheme.classicBlue:
         return DefaultCardTheme(
             AppTheme.classicBlue,

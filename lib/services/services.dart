@@ -336,8 +336,10 @@ class EventStorage {
   }
 
   static int generateId() {
-    return (DateTime.now().microsecondsSinceEpoch & 0x7FFFFFFF) ^
-        (math.Random().nextInt(0xFFFF) << 15) & 0x7FFFFFFF;
+    // 연산자 우선순위 명시: (A & M) ^ (B & M) == (A ^ B) & M (XOR 분배법칙)
+    return ((DateTime.now().microsecondsSinceEpoch & 0x7FFFFFFF) ^
+            (math.Random().nextInt(0xFFFF) << 15)) &
+        0x7FFFFFFF;
   }
 }
 

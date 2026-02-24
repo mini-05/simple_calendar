@@ -10,6 +10,7 @@ import '../models/models.dart';
 import '../services/services.dart';
 import '../logic/date_formatter.dart';
 import '../logic/slot_calculator.dart';
+import '../logic/holidays.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -69,8 +70,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _rebuildIndex(List<CalendarEvent> all, {bool firstLoad = false}) {
+    // 공휴일은 calendar_screen에서 생성해 SlotCalculator에 주입 (결합도 감소)
+    final minDate = DateTime(_windowCenter.year, _windowCenter.month - 12, 1);
+    final maxDate = DateTime(_windowCenter.year, _windowCenter.month + 13, 0);
+    final List<CalendarEvent>? holidays = _appSettings.showHolidays
+        ? HolidayUtil.generateHolidaysForWindow(minDate, maxDate)
+        : null;
+
     final result = SlotCalculator.calculate(
-        all, _windowCenter, _slotMap, firstLoad, _appSettings.showHolidays);
+        all, _windowCenter, _slotMap, firstLoad, holidays);
     final selKey = DateFormatter.dateKey(_selectedDay ?? _focusedDay);
 
     if (mounted) {
@@ -125,6 +133,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _rescheduleAllAlarms() async {
     for (final e in _allEvents) {
+      if (e.isHoliday) continue; // 공휴일은 알람 없음
       if (e.alarmDateTime != null && e.alarmDateTime!.isAfter(DateTime.now())) {
         if (e.isAlarmOn) {
           await NotificationService.scheduleEventAlarm(
@@ -180,12 +189,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   String? _getCachedLunarLabel(DateTime d) {
+    // showLunarCalendar가 false이면 캐시 없이 바로 null 반환
+    if (!_appSettings.showLunarCalendar) return null;
     final key = DateFormatter.dateKey(d);
     return _lunarCache.putIfAbsent(
-        key,
-        () =>
-            DateFormatter.getLunarLabel(d, _appSettings.showLunarCalendar) ??
-            '');
+        key, () => DateFormatter.getLunarLabel(d, true) ?? '');
   }
 
   double _calcRowHeight(DateTime firstDayOfWeek) {
@@ -233,6 +241,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       textColor = Colors.white;
     }
 
+    // [설계 의도] 음력은 일요일 셀에만 표시 (1일·15일·30일 해당 시만 출력)
+    // 평일·토요일은 셀이 좁아 미표시. isOutside(이전/다음 달)도 제외.
     final lunarLabel = (!isOutside && day.weekday == DateTime.sunday)
         ? _getCachedLunarLabel(day)
         : null;
@@ -398,7 +408,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ? _buildArrowCalendar()
         : _buildSwipeCalendar();
 
-    if (_th.name == '투두 스카이' || _th.name == '다크 네온') {
+    if (_th.hasRoundedCard) {
       return Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Container(
@@ -431,7 +441,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildArrowCalendar() {
     final headerColor =
-        _th.name == '투두 스카이' ? const Color(0xFF2D3142) : _th.appBarText;
+        _th.hasRoundedCard ? const Color(0xFF2D3142) : _th.appBarText;
     return Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: TableCalendar<CalendarEvent>(
@@ -505,7 +515,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildSwipeCalendar() {
     final headerColor =
-        _th.name == '투두 스카이' ? const Color(0xFF2D3142) : _th.appBarText;
+        _th.hasRoundedCard ? const Color(0xFF2D3142) : _th.appBarText;
     const dows = ['일', '월', '화', '수', '목', '금', '토'];
     final scrollAxis =
         _appSettings.calendarNavMode == CalendarNavMode.swipeVertical
@@ -849,7 +859,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         setState(() {
                           _appSettings = updated;
                           _th = updated.currentTheme.themeData;
-                          _lunarCache.clear(); // 💡 무음모드 설정 시에도 일관성을 위해 캐시 비움
                         });
                         await AppSettingsStorage.save(updated);
                         await _rescheduleAllAlarms();
@@ -1560,9 +1569,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void _showActionSheet(CalendarEvent event) {
     showModalBottomSheet(
         context: context,
-        backgroundColor: _th.name == '투두 스카이'
-            ? const Color(0xFF3A3F5C)
-            : (_th.isDark ? const Color(0xFF2A2640) : Colors.white),
+        backgroundColor: _th.bottomSheetBg ??
+            (_th.isDark ? const Color(0xFF2A2640) : Colors.white),
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
         builder: (ctx) => SafeArea(
@@ -1585,7 +1593,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       title: Text('수정하기',
                           style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: (_th.isDark || _th.name == '투두 스카이')
+                              color: (_th.isDark || _th.bottomSheetBg != null)
                                   ? Colors.white
                                   : Colors.black)),
                       onTap: () {
@@ -1886,7 +1894,7 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                   _switchTile(
                       icon: Icons.calendar_today_outlined,
                       label: '음력 표시 (일요일)',
-                      subtitle: '일요일 날짜 옆에 음력을 표시합니다',
+                      subtitle: '음력 1일·15일·30일을 일요일에 표시합니다',
                       value: _s.showLunarCalendar,
                       onChanged: (v) =>
                           _update(_s.copyWith(showLunarCalendar: v))),
