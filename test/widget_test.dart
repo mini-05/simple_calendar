@@ -1,30 +1,16 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+// v3.5.0
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:simple_calendar/main.dart';
+import 'package:simple_calendar/main.dart'; // 💡 내 앱의 메인 파일 import
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('Calendar app smoke test', (WidgetTester tester) async {
+    // 1. 앱을 빌드하고 프레임을 트리거합니다.
     await tester.pumpWidget(const MyCalendarApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // 2. 비동기 렌더링이 완료될 때까지 기다립니다.
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // 3. 앱바에 'My Calendar'라는 텍스트가 정상적으로 나타나는지 확인합니다.
+    expect(find.text('My Calendar'), findsWidgets);
   });
 }

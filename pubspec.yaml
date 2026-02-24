@@ -1,7 +1,8 @@
+# v3.5.0
 name: simple_calendar
-description: My Calendar App v2.3.1 - Military Grade Secure Edition
+description: My Calendar App v3.5.0
 publish_to: none
-version: 2.3.1+1
+version: 3.5.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -16,13 +17,12 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   flutter_local_notifications: ^18.0.0
   timezone: ^0.9.4
-  
-  # 💡 바로 이 부분입니다! 버전을 ^5.0.1로 올렸습니다.
-  flutter_timezone: ^5.0.1 
-  
+  flutter_timezone: ^5.0.1
   file_picker: ^8.1.0
   permission_handler: ^11.3.0
   lunar: ^1.7.6
+  path_provider: ^2.1.2
+  share_plus: ^7.2.1
 
 dev_dependencies:
   flutter_test:
