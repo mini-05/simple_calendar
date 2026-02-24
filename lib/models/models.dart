@@ -1,5 +1,5 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
-// v3.6.0
+// v3.6.2
 import 'dart:typed_data';
 
 enum AppTheme { apple, samsung, naver, darkNeon, classicBlue, todoSky }

@@ -1,5 +1,5 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
-// v3.6.0
+// v3.6.2
 import '../models/models.dart';
 import 'date_formatter.dart';
 
@@ -11,16 +11,13 @@ class SlotCalculationResult {
   SlotCalculationResult(this.eventsByDate, this.slotMap, this.windowEvents);
 }
 
-/// 슬롯 배정 알고리즘. 공휴일 이벤트는 외부에서 주입받아 holidays.dart 의존성 없음.
 class SlotCalculator {
   static SlotCalculationResult calculate(
       List<CalendarEvent> allEvents,
       DateTime windowCenter,
       Map<int, int> existingSlotMap,
       bool isFirstLoad,
-
-      /// 이미 생성된 공휴일 이벤트 목록. null이면 공휴일 없음.
-      List<CalendarEvent>? holidayEvents) {
+      List<CalendarEvent>? holidays) {
     final minDate = DateTime(windowCenter.year, windowCenter.month - 12, 1);
     final maxDate = DateTime(windowCenter.year, windowCenter.month + 13, 0);
 
@@ -28,8 +25,8 @@ class SlotCalculator {
         .where((e) => !e.endDt.isBefore(minDate) && !e.startDt.isAfter(maxDate))
         .toList();
 
-    if (holidayEvents != null) {
-      windowEvents.addAll(holidayEvents);
+    if (holidays != null) {
+      windowEvents.addAll(holidays);
     }
 
     windowEvents.sort((a, b) {

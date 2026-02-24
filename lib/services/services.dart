@@ -1,5 +1,5 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
-// v3.6.0
+// v3.6.2
 import 'dart:io' show File, Platform;
 import 'dart:convert';
 import 'dart:math' as math;
@@ -336,10 +336,8 @@ class EventStorage {
   }
 
   static int generateId() {
-    // 연산자 우선순위 명시: (A & M) ^ (B & M) == (A ^ B) & M (XOR 분배법칙)
     return ((DateTime.now().microsecondsSinceEpoch & 0x7FFFFFFF) ^
-            (math.Random().nextInt(0xFFFF) << 15)) &
-        0x7FFFFFFF;
+        ((math.Random().nextInt(0xFFFF) << 15) & 0x7FFFFFFF));
   }
 }
 
@@ -349,7 +347,7 @@ class IcsService {
       final buffer = StringBuffer();
       buffer.writeln('BEGIN:VCALENDAR');
       buffer.writeln('VERSION:2.0');
-      buffer.writeln('PRODID:-//My Calendar App//v3.6.0//EN');
+      buffer.writeln('PRODID:-//My Calendar App//v3.6.2//EN');
 
       String formatDt(DateTime d) {
         return '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';

@@ -1,5 +1,5 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
-// v3.6.0
+// v3.6.2
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 
@@ -20,16 +20,13 @@ abstract class CalendarTheme {
   Color get iconBg;
   Color get iconColor;
   Color get sectionLabelText;
-  Color? get bottomPanelBg => null;
+
   bool get isDark => false;
   bool get showTextInside => false;
-
-  /// true이면 달력을 패딩+둥근 카드 박스 안에 감쌉니다 (투두스카이, 다크네온)
-  bool get hasRoundedCard => false;
-
-  /// 바텀시트 배경색. null이면 기본(흰색/다크)으로 처리
-  Color? get bottomSheetBg => null;
   Alignment get cellTextAlignment => Alignment.center;
+
+  bool get hasRoundedCard => false;
+  Color? get bottomSheetBg => null;
 
   Widget buildTitleColumn(
       {required CalendarEvent event,
@@ -48,7 +45,7 @@ abstract class CalendarTheme {
                     fontWeight: FontWeight.w600,
                     fontSize: titleSize,
                     color: titleColor ?? eventTitleText))),
-        if (event.alarmMinutes != AlarmMinutes.none)
+        if (event.alarmMinutes != AlarmMinutes.none && !event.isHoliday)
           GestureDetector(
               onTap: onToggleAlarm,
               child: Padding(
@@ -407,12 +404,11 @@ class TodoSkyTheme extends CalendarTheme {
   Color get iconColor => const Color(0xFFEF6C6C);
   @override
   Color get sectionLabelText => Colors.white;
+
   @override
-  Color get bottomPanelBg => const Color(0xFF2D3142);
+  Color get bottomSheetBg => const Color(0xFF2D3142);
   @override
   bool get hasRoundedCard => true;
-  @override
-  Color get bottomSheetBg => const Color(0xFF3A3F5C);
 
   @override
   Widget buildScaffoldLayout(
@@ -429,36 +425,37 @@ class TodoSkyTheme extends CalendarTheme {
         displayDay.month == DateTime.now().month &&
         displayDay.day == DateTime.now().day;
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: appBar,
-      floatingActionButton: floatingActionButton,
-      body: isLoading
-          ? Center(child: CircularProgressIndicator(color: primaryAccent))
-          : Column(children: [
-              calendarSection,
-              Expanded(
-                  child: Container(
-                decoration: BoxDecoration(
-                    color: bottomPanelBg,
-                    borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(28),
-                        topRight: Radius.circular(28))),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-                          child: Text(
-                              isToday ? 'Today' : formatDateKorean(displayDay),
-                              style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white))),
-                      Expanded(child: eventList)
-                    ]),
-              ))
-            ]),
-    );
+        backgroundColor: Colors.white,
+        appBar: appBar,
+        floatingActionButton: floatingActionButton,
+        body: isLoading
+            ? Center(child: CircularProgressIndicator(color: primaryAccent))
+            : Column(children: [
+                calendarSection,
+                Expanded(
+                    child: Container(
+                        decoration: BoxDecoration(
+                            color: bottomSheetBg,
+                            borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(28),
+                                topRight: Radius.circular(28))),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(24, 20, 24, 8),
+                                  child: Text(
+                                      isToday
+                                          ? 'Today'
+                                          : formatDateKorean(displayDay),
+                                      style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white))),
+                              Expanded(child: eventList)
+                            ])))
+              ]));
   }
 
   @override
@@ -503,7 +500,8 @@ class TodoSkyTheme extends CalendarTheme {
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                               color: Colors.white))),
-                  if (event.alarmMinutes != AlarmMinutes.none)
+                  if (event.alarmMinutes != AlarmMinutes.none &&
+                      !event.isHoliday)
                     GestureDetector(
                         onTap: onToggleAlarm,
                         child: Padding(

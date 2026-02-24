@@ -1,8 +1,8 @@
-# v3.5.0
+# v3.6.2
 name: simple_calendar
-description: My Calendar App v3.5.0
+description: My Calendar App v3.6.2
 publish_to: none
-version: 3.5.0+1
+version: 3.6.2+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"

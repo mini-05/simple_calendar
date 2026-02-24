@@ -1,5 +1,5 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
-// v3.6.0
+// v3.6.2
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -59,7 +59,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
       setState(() {
         _appSettings = s;
         _th = s.currentTheme.themeData;
-        _lunarCache.clear(); // 💡 앱 로드 시 캐시 초기화
       });
     }
   }
@@ -70,10 +69,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _rebuildIndex(List<CalendarEvent> all, {bool firstLoad = false}) {
-    // 공휴일은 calendar_screen에서 생성해 SlotCalculator에 주입 (결합도 감소)
     final minDate = DateTime(_windowCenter.year, _windowCenter.month - 12, 1);
     final maxDate = DateTime(_windowCenter.year, _windowCenter.month + 13, 0);
-    final List<CalendarEvent>? holidays = _appSettings.showHolidays
+
+    final holidays = _appSettings.showHolidays
         ? HolidayUtil.generateHolidaysForWindow(minDate, maxDate)
         : null;
 
@@ -133,7 +132,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _rescheduleAllAlarms() async {
     for (final e in _allEvents) {
-      if (e.isHoliday) continue; // 공휴일은 알람 없음
+      if (e.isHoliday) continue;
       if (e.alarmDateTime != null && e.alarmDateTime!.isAfter(DateTime.now())) {
         if (e.isAlarmOn) {
           await NotificationService.scheduleEventAlarm(
@@ -189,11 +188,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   String? _getCachedLunarLabel(DateTime d) {
-    // showLunarCalendar가 false이면 캐시 없이 바로 null 반환
     if (!_appSettings.showLunarCalendar) return null;
     final key = DateFormatter.dateKey(d);
     return _lunarCache.putIfAbsent(
-        key, () => DateFormatter.getLunarLabel(d, true) ?? '');
+        key,
+        () =>
+            DateFormatter.getLunarLabel(d, _appSettings.showLunarCalendar) ??
+            '');
   }
 
   double _calcRowHeight(DateTime firstDayOfWeek) {
@@ -241,8 +242,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
       textColor = Colors.white;
     }
 
-    // [설계 의도] 음력은 일요일 셀에만 표시 (1일·15일·30일 해당 시만 출력)
-    // 평일·토요일은 셀이 좁아 미표시. isOutside(이전/다음 달)도 제외.
     final lunarLabel = (!isOutside && day.weekday == DateTime.sunday)
         ? _getCachedLunarLabel(day)
         : null;
@@ -440,8 +439,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _buildArrowCalendar() {
-    final headerColor =
-        _th.hasRoundedCard ? const Color(0xFF2D3142) : _th.appBarText;
+    final headerColor = _th.appBarText;
     return Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: TableCalendar<CalendarEvent>(
@@ -514,8 +512,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _buildSwipeCalendar() {
-    final headerColor =
-        _th.hasRoundedCard ? const Color(0xFF2D3142) : _th.appBarText;
+    final headerColor = _th.appBarText;
     const dows = ['일', '월', '화', '수', '목', '금', '토'];
     final scrollAxis =
         _appSettings.calendarNavMode == CalendarNavMode.swipeVertical
@@ -676,7 +673,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       setState(() {
                         _appSettings = updated;
                         _th = updated.currentTheme.themeData;
-                        _lunarCache.clear(); // 💡 설정 변경 시 캐시 강제 초기화
+                        if (!updated.showLunarCalendar) {
+                          _lunarCache.clear();
+                        }
                       });
                       await AppSettingsStorage.save(updated);
                       _rebuildIndex(_allEvents);
@@ -1837,6 +1836,7 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                                     fontWeight: FontWeight.bold)))
                       ]),
                   const SizedBox(height: 10),
+
                   Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Text('💾 데이터 관리 (범용 규격)',
@@ -1890,11 +1890,13 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                             }))
                   ]),
                   const SizedBox(height: 16),
+
                   _sectionTitle('📅 달력 설정'),
+                  // 💡 [수정] 자막을 기획 의도에 맞게 변경
                   _switchTile(
                       icon: Icons.calendar_today_outlined,
                       label: '음력 표시 (일요일)',
-                      subtitle: '음력 1일·15일·30일을 일요일에 표시합니다',
+                      subtitle: '매주 일요일 양력 날짜 옆에 음력을 표시합니다',
                       value: _s.showLunarCalendar,
                       onChanged: (v) =>
                           _update(_s.copyWith(showLunarCalendar: v))),
@@ -1904,6 +1906,7 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                       subtitle: '한국의 주요 공휴일을 표시합니다',
                       value: _s.showHolidays,
                       onChanged: (v) => _update(_s.copyWith(showHolidays: v))),
+
                   const SizedBox(height: 12),
                   Container(
                       margin: const EdgeInsets.only(bottom: 8),
