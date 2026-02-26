@@ -2,7 +2,7 @@
 name: simple_calendar
 description: My Calendar App v4.1.0 — SoC 리팩터링 + Riverpod + 반복 일정
 publish_to: none
-version: 4.1.0+1
+version: 4.1.0+10
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
