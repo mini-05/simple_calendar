@@ -1,12 +1,23 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
-// v3.6.2
+// theme/app_theme.dart
+// 디자인 시스템 (Design System)
+// - 6종 테마의 색상 및 UI 속성 정의
+// - showTextInside: Bar 표시 vs Dot 표시 분기 플래그
+// - buildEventListItem: 테마별 일정 목록 아이템 렌더링
+// - buildScaffoldLayout 제거: 레이아웃 책임은 ui/calendar_screen으로 이전
 import 'package:flutter/material.dart';
 import '../models/models.dart';
+
+// ══════════════════════════════════════════════════════════════════
+// CalendarTheme — 테마 인터페이스
+// ══════════════════════════════════════════════════════════════════
 
 abstract class CalendarTheme {
   AppTheme get type;
   String get name;
   String get emoji;
+
+  // ── 색상 팔레트 ──────────────────────────────────────────────
   Color get scaffoldBg;
   Color get appBarBg;
   Color get appBarText;
@@ -21,68 +32,80 @@ abstract class CalendarTheme {
   Color get iconColor;
   Color get sectionLabelText;
 
-  bool get isDark => false;
+  // ── 레이아웃 플래그 ──────────────────────────────────────────
+  /// true: 날짜 셀 안에 이벤트 Bar + 글씨 표시 (삼성/네이버)
+  /// false: 날짜 숫자 아래 Dot만 표시 (애플/다크네온)
   bool get showTextInside => false;
-  Alignment get cellTextAlignment => Alignment.center;
 
+  bool get isDark => false;
   bool get hasRoundedCard => false;
+
+  /// 일정 패널 배경색 (null = scaffoldBg 사용)
   Color? get bottomSheetBg => null;
 
-  Widget buildTitleColumn(
-      {required CalendarEvent event,
-      required String dateInfo,
-      required bool isGlobalSilent,
-      required VoidCallback onToggleAlarm,
-      Color? titleColor,
-      double titleSize = 15,
-      double dateSize = 12}) {
+  /// showTextInside=true 시 날짜 숫자 정렬 방향
+  Alignment get cellTextAlignment => Alignment.center;
+
+  // ── 공통 빌더 ────────────────────────────────────────────────
+
+  /// 일정 제목 + 시간 + 알람 아이콘 컬럼
+  Widget buildTitleColumn({
+    required CalendarEvent event,
+    required String dateInfo,
+    required bool isGlobalSilent,
+    required VoidCallback onToggleAlarm,
+    Color? titleColor,
+    double titleSize = 15,
+    double dateSize = 12,
+  }) {
     final effectiveAlarmOn = event.isAlarmOn && !isGlobalSilent;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(
-            child: Text(event.title,
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: titleSize,
-                    color: titleColor ?? eventTitleText))),
+          child: Text(event.title,
+              style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: titleSize,
+                  color: titleColor ?? eventTitleText)),
+        ),
         if (event.alarmMinutes != AlarmMinutes.none && !event.isHoliday)
           GestureDetector(
-              onTap: onToggleAlarm,
-              child: Padding(
-                  padding: const EdgeInsets.only(
-                      left: 8, right: 4, top: 2, bottom: 2),
-                  child: Icon(
-                      effectiveAlarmOn
-                          ? Icons.notifications_active
-                          : Icons.notifications_paused,
-                      size: 16,
-                      color: effectiveAlarmOn
-                          ? primaryAccent
-                          : Colors.grey.withValues(alpha: 0.5))))
+            onTap: onToggleAlarm,
+            child: Padding(
+              padding:
+                  const EdgeInsets.only(left: 8, right: 4, top: 2, bottom: 2),
+              child: Icon(
+                effectiveAlarmOn
+                    ? Icons.notifications_active
+                    : Icons.notifications_paused,
+                size: 16,
+                color: effectiveAlarmOn
+                    ? primaryAccent
+                    : Colors.grey.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
       ]),
       if (dateInfo.isNotEmpty)
-        Text(dateInfo, style: TextStyle(fontSize: dateSize, color: Colors.grey))
+        Text(dateInfo,
+            style: TextStyle(fontSize: dateSize, color: Colors.grey)),
     ]);
   }
 
-  Widget buildEventListItem(
-      {required BuildContext context,
-      required CalendarEvent event,
-      required String dateInfo,
-      required bool isGlobalSilent,
-      required VoidCallback onToggleAlarm,
-      required String Function(String) formatHHmm});
-  Widget buildScaffoldLayout(
-      {required BuildContext context,
-      required bool isLoading,
-      required PreferredSizeWidget appBar,
-      required Widget calendarSection,
-      required Widget sectionLabel,
-      required Widget eventList,
-      required Widget floatingActionButton,
-      required DateTime displayDay,
-      required String Function(DateTime) formatDateKorean});
+  /// 테마별 일정 목록 아이템 위젯
+  Widget buildEventListItem({
+    required BuildContext context,
+    required CalendarEvent event,
+    required String dateInfo,
+    required bool isGlobalSilent,
+    required VoidCallback onToggleAlarm,
+    required String Function(String) formatHHmm,
+  });
 }
+
+// ══════════════════════════════════════════════════════════════════
+// 개별 테마 구현체
+// ══════════════════════════════════════════════════════════════════
 
 class SamsungTheme extends CalendarTheme {
   @override
@@ -118,67 +141,45 @@ class SamsungTheme extends CalendarTheme {
   @override
   Color get sectionLabelText => const Color(0xFF444444);
   @override
-  bool get showTextInside => true;
+  bool get showTextInside => true; // Bar + 글씨
   @override
   Alignment get cellTextAlignment => Alignment.topLeft;
 
   @override
-  Widget buildEventListItem(
-      {required BuildContext context,
-      required CalendarEvent event,
-      required String dateInfo,
-      required bool isGlobalSilent,
-      required VoidCallback onToggleAlarm,
-      required String Function(String) formatHHmm}) {
+  Widget buildEventListItem({
+    required BuildContext context,
+    required CalendarEvent event,
+    required String dateInfo,
+    required bool isGlobalSilent,
+    required VoidCallback onToggleAlarm,
+    required String Function(String) formatHHmm,
+  }) {
     final color =
         event.colorValue != null ? Color(event.colorValue!) : primaryAccent;
     return Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03), blurRadius: 4)
-            ]),
-        child: Row(children: [
-          Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 12),
-          Expanded(
-              child: buildTitleColumn(
-                  event: event,
-                  dateInfo: dateInfo,
-                  isGlobalSilent: isGlobalSilent,
-                  onToggleAlarm: onToggleAlarm))
-        ]));
-  }
-
-  @override
-  Widget buildScaffoldLayout(
-      {required BuildContext context,
-      required bool isLoading,
-      required PreferredSizeWidget appBar,
-      required Widget calendarSection,
-      required Widget sectionLabel,
-      required Widget eventList,
-      required Widget floatingActionButton,
-      required DateTime displayDay,
-      required String Function(DateTime) formatDateKorean}) {
-    return Scaffold(
-        backgroundColor: scaffoldBg,
-        appBar: appBar,
-        floatingActionButton: floatingActionButton,
-        body: isLoading
-            ? Center(child: CircularProgressIndicator(color: primaryAccent))
-            : Column(children: [
-                calendarSection,
-                sectionLabel,
-                Expanded(child: eventList)
-              ]));
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4)
+        ],
+      ),
+      child: Row(children: [
+        Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 12),
+        Expanded(
+            child: buildTitleColumn(
+                event: event,
+                dateInfo: dateInfo,
+                isGlobalSilent: isGlobalSilent,
+                onToggleAlarm: onToggleAlarm)),
+      ]),
+    );
   }
 }
 
@@ -215,62 +216,41 @@ class AppleTheme extends CalendarTheme {
   Color get iconColor => const Color(0xFFFA233B);
   @override
   Color get sectionLabelText => const Color(0xFF1A1A2E);
+  // showTextInside = false → Dot 표시
 
   @override
-  Widget buildEventListItem(
-      {required BuildContext context,
-      required CalendarEvent event,
-      required String dateInfo,
-      required bool isGlobalSilent,
-      required VoidCallback onToggleAlarm,
-      required String Function(String) formatHHmm}) {
+  Widget buildEventListItem({
+    required BuildContext context,
+    required CalendarEvent event,
+    required String dateInfo,
+    required bool isGlobalSilent,
+    required VoidCallback onToggleAlarm,
+    required String Function(String) formatHHmm,
+  }) {
     final color =
         event.colorValue != null ? Color(event.colorValue!) : primaryAccent;
     return Container(
-        margin: const EdgeInsets.only(bottom: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        decoration: BoxDecoration(
-            border: Border(
-                bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.1)))),
-        child: Row(children: [
-          Container(
-              width: 4,
-              height: 44,
-              decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 12),
-          Expanded(
-              child: buildTitleColumn(
-                  event: event,
-                  dateInfo: dateInfo,
-                  isGlobalSilent: isGlobalSilent,
-                  onToggleAlarm: onToggleAlarm,
-                  titleSize: 16))
-        ]));
-  }
-
-  @override
-  Widget buildScaffoldLayout(
-      {required BuildContext context,
-      required bool isLoading,
-      required PreferredSizeWidget appBar,
-      required Widget calendarSection,
-      required Widget sectionLabel,
-      required Widget eventList,
-      required Widget floatingActionButton,
-      required DateTime displayDay,
-      required String Function(DateTime) formatDateKorean}) {
-    return Scaffold(
-        backgroundColor: scaffoldBg,
-        appBar: appBar,
-        floatingActionButton: floatingActionButton,
-        body: isLoading
-            ? Center(child: CircularProgressIndicator(color: primaryAccent))
-            : Column(children: [
-                calendarSection,
-                sectionLabel,
-                Expanded(child: eventList)
-              ]));
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+          border: Border(
+              bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.1)))),
+      child: Row(children: [
+        Container(
+            width: 4,
+            height: 44,
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 12),
+        Expanded(
+            child: buildTitleColumn(
+                event: event,
+                dateInfo: dateInfo,
+                isGlobalSilent: isGlobalSilent,
+                onToggleAlarm: onToggleAlarm,
+                titleSize: 16)),
+      ]),
+    );
   }
 }
 
@@ -308,66 +288,44 @@ class NaverTheme extends CalendarTheme {
   @override
   Color get sectionLabelText => Colors.black;
   @override
-  bool get showTextInside => true;
+  bool get showTextInside => true; // Bar + 글씨
 
   @override
-  Widget buildEventListItem(
-      {required BuildContext context,
-      required CalendarEvent event,
-      required String dateInfo,
-      required bool isGlobalSilent,
-      required VoidCallback onToggleAlarm,
-      required String Function(String) formatHHmm}) {
+  Widget buildEventListItem({
+    required BuildContext context,
+    required CalendarEvent event,
+    required String dateInfo,
+    required bool isGlobalSilent,
+    required VoidCallback onToggleAlarm,
+    required String Function(String) formatHHmm,
+  }) {
     final color =
         event.colorValue != null ? Color(event.colorValue!) : primaryAccent;
     return Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03), blurRadius: 4)
-            ]),
-        child: Row(children: [
-          Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(3))),
-          const SizedBox(width: 12),
-          Expanded(
-              child: buildTitleColumn(
-                  event: event,
-                  dateInfo: dateInfo,
-                  isGlobalSilent: isGlobalSilent,
-                  onToggleAlarm: onToggleAlarm))
-        ]));
-  }
-
-  @override
-  Widget buildScaffoldLayout(
-      {required BuildContext context,
-      required bool isLoading,
-      required PreferredSizeWidget appBar,
-      required Widget calendarSection,
-      required Widget sectionLabel,
-      required Widget eventList,
-      required Widget floatingActionButton,
-      required DateTime displayDay,
-      required String Function(DateTime) formatDateKorean}) {
-    return Scaffold(
-        backgroundColor: scaffoldBg,
-        appBar: appBar,
-        floatingActionButton: floatingActionButton,
-        body: isLoading
-            ? Center(child: CircularProgressIndicator(color: primaryAccent))
-            : Column(children: [
-                calendarSection,
-                sectionLabel,
-                Expanded(child: eventList)
-              ]));
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4)
+        ],
+      ),
+      child: Row(children: [
+        Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(3))),
+        const SizedBox(width: 12),
+        Expanded(
+            child: buildTitleColumn(
+                event: event,
+                dateInfo: dateInfo,
+                isGlobalSilent: isGlobalSilent,
+                onToggleAlarm: onToggleAlarm)),
+      ]),
+    );
   }
 }
 
@@ -404,138 +362,90 @@ class TodoSkyTheme extends CalendarTheme {
   Color get iconColor => const Color(0xFFEF6C6C);
   @override
   Color get sectionLabelText => Colors.white;
-
   @override
-  Color get bottomSheetBg => const Color(0xFF2D3142);
+  Color? get bottomSheetBg => const Color(0xFF2D3142);
   @override
   bool get hasRoundedCard => true;
 
   @override
-  Widget buildScaffoldLayout(
-      {required BuildContext context,
-      required bool isLoading,
-      required PreferredSizeWidget appBar,
-      required Widget calendarSection,
-      required Widget sectionLabel,
-      required Widget eventList,
-      required Widget floatingActionButton,
-      required DateTime displayDay,
-      required String Function(DateTime) formatDateKorean}) {
-    final isToday = displayDay.year == DateTime.now().year &&
-        displayDay.month == DateTime.now().month &&
-        displayDay.day == DateTime.now().day;
-    return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: appBar,
-        floatingActionButton: floatingActionButton,
-        body: isLoading
-            ? Center(child: CircularProgressIndicator(color: primaryAccent))
-            : Column(children: [
-                calendarSection,
-                Expanded(
-                    child: Container(
-                        decoration: BoxDecoration(
-                            color: bottomSheetBg,
-                            borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(28),
-                                topRight: Radius.circular(28))),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(24, 20, 24, 8),
-                                  child: Text(
-                                      isToday
-                                          ? 'Today'
-                                          : formatDateKorean(displayDay),
-                                      style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white))),
-                              Expanded(child: eventList)
-                            ])))
-              ]));
-  }
-
-  @override
-  Widget buildEventListItem(
-      {required BuildContext context,
-      required CalendarEvent event,
-      required String dateInfo,
-      required bool isGlobalSilent,
-      required VoidCallback onToggleAlarm,
-      required String Function(String) formatHHmm}) {
+  Widget buildEventListItem({
+    required BuildContext context,
+    required CalendarEvent event,
+    required String dateInfo,
+    required bool isGlobalSilent,
+    required VoidCallback onToggleAlarm,
+    required String Function(String) formatHHmm,
+  }) {
     final color =
         event.colorValue != null ? Color(event.colorValue!) : primaryAccent;
     final effectiveAlarmOn = event.isAlarmOn && !isGlobalSilent;
     return Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3))
-            ]),
-        child: Row(children: [
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 3))
+        ],
+      ),
+      child: Row(children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.2), shape: BoxShape.circle),
+          child: Icon(Icons.event, color: color, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(
+                child: Text(event.title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.white))),
+            if (event.alarmMinutes != AlarmMinutes.none && !event.isHoliday)
+              GestureDetector(
+                  onTap: onToggleAlarm,
+                  child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Icon(
+                          effectiveAlarmOn
+                              ? Icons.notifications_active
+                              : Icons.notifications_paused,
+                          size: 14,
+                          color: effectiveAlarmOn
+                              ? primaryAccent
+                              : Colors.grey.withValues(alpha: 0.5)))),
+          ]),
+          if (dateInfo.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(dateInfo, style: TextStyle(fontSize: 12, color: eventSubText)),
+          ],
+        ])),
+        if (event.startTime != null)
           Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2), shape: BoxShape.circle),
-              child: Icon(Icons.event, color: color, size: 18)),
-          const SizedBox(width: 12),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Row(children: [
-                  Expanded(
-                      child: Text(event.title,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: Colors.white))),
-                  if (event.alarmMinutes != AlarmMinutes.none &&
-                      !event.isHoliday)
-                    GestureDetector(
-                        onTap: onToggleAlarm,
-                        child: Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: Icon(
-                                effectiveAlarmOn
-                                    ? Icons.notifications_active
-                                    : Icons.notifications_paused,
-                                size: 14,
-                                color: effectiveAlarmOn
-                                    ? primaryAccent
-                                    : Colors.grey.withValues(alpha: 0.5))))
-                ]),
-                if (dateInfo.isNotEmpty) const SizedBox(height: 2),
-                if (dateInfo.isNotEmpty)
-                  Text(dateInfo,
-                      style: TextStyle(fontSize: 12, color: eventSubText))
-              ])),
-          if (event.startTime != null)
-            Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(20)),
-                child: Text(formatHHmm(event.startTime!),
-                    style: TextStyle(
-                        color: color,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold)))
-        ]));
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(20)),
+            child: Text(formatHHmm(event.startTime!),
+                style: TextStyle(
+                    color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+      ]),
+    );
   }
 }
 
+/// darkNeon / classicBlue 공통 카드 테마
 class DefaultCardTheme extends CalendarTheme {
   final AppTheme _type;
   final String _name, _emoji;
@@ -552,8 +462,8 @@ class DefaultCardTheme extends CalendarTheme {
       _iconBg,
       _iconColor,
       _sectionLabelText;
-  final bool _isDark;
-  final bool _hasRoundedCard;
+  final bool _isDark, _hasRoundedCard;
+
   DefaultCardTheme(
       this._type,
       this._name,
@@ -575,6 +485,7 @@ class DefaultCardTheme extends CalendarTheme {
       bool hasRoundedCard = false})
       : _isDark = isDark,
         _hasRoundedCard = hasRoundedCard;
+
   @override
   AppTheme get type => _type;
   @override
@@ -613,59 +524,42 @@ class DefaultCardTheme extends CalendarTheme {
   bool get hasRoundedCard => _hasRoundedCard;
 
   @override
-  Widget buildEventListItem(
-      {required BuildContext context,
-      required CalendarEvent event,
-      required String dateInfo,
-      required bool isGlobalSilent,
-      required VoidCallback onToggleAlarm,
-      required String Function(String) formatHHmm}) {
+  Widget buildEventListItem({
+    required BuildContext context,
+    required CalendarEvent event,
+    required String dateInfo,
+    required bool isGlobalSilent,
+    required VoidCallback onToggleAlarm,
+    required String Function(String) formatHHmm,
+  }) {
     final color =
         event.colorValue != null ? Color(event.colorValue!) : primaryAccent;
     return Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: cardBorder)),
-        child: Row(children: [
-          Icon(Icons.check_circle_outline, color: color),
-          const SizedBox(width: 12),
-          Expanded(
-              child: buildTitleColumn(
-                  event: event,
-                  dateInfo: dateInfo,
-                  isGlobalSilent: isGlobalSilent,
-                  onToggleAlarm: onToggleAlarm,
-                  dateSize: 11))
-        ]));
-  }
-
-  @override
-  Widget buildScaffoldLayout(
-      {required BuildContext context,
-      required bool isLoading,
-      required PreferredSizeWidget appBar,
-      required Widget calendarSection,
-      required Widget sectionLabel,
-      required Widget eventList,
-      required Widget floatingActionButton,
-      required DateTime displayDay,
-      required String Function(DateTime) formatDateKorean}) {
-    return Scaffold(
-        backgroundColor: scaffoldBg,
-        appBar: appBar,
-        floatingActionButton: floatingActionButton,
-        body: isLoading
-            ? Center(child: CircularProgressIndicator(color: primaryAccent))
-            : Column(children: [
-                calendarSection,
-                sectionLabel,
-                Expanded(child: eventList)
-              ]));
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cardBorder),
+      ),
+      child: Row(children: [
+        Icon(Icons.check_circle_outline, color: color),
+        const SizedBox(width: 12),
+        Expanded(
+            child: buildTitleColumn(
+                event: event,
+                dateInfo: dateInfo,
+                isGlobalSilent: isGlobalSilent,
+                onToggleAlarm: onToggleAlarm,
+                dateSize: 11)),
+      ]),
+    );
   }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// AppThemeExt — AppTheme enum → CalendarTheme 인스턴스 변환
+// ══════════════════════════════════════════════════════════════════
 
 extension AppThemeExt on AppTheme {
   CalendarTheme get themeData {

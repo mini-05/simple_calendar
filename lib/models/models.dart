@@ -1,6 +1,12 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
-// v3.6.2
+// models/models.dart
+// 데이터 규격 정의 (Schema)
+// - CalendarEvent: 일정 데이터 구조 및 JSON 변환 + 계산 프로퍼티
+// - AppSettings: 테마, 알림 등 설정 값 정의
+// - RecurrenceRule: 반복 일정 로직 정의
 import 'dart:typed_data';
+
+// ── Enum 정의 ────────────────────────────────────────────────────
 
 enum AppTheme { apple, samsung, naver, darkNeon, classicBlue, todoSky }
 
@@ -14,8 +20,6 @@ enum CalendarNavMode {
 }
 
 enum AlarmMode { silent, soundOnly, vibrationOnly, soundAndVibration }
-
-const int defaultEventColor = 0xFF2196F3;
 
 extension AlarmModeExt on AlarmMode {
   String get label {
@@ -70,9 +74,77 @@ enum AlarmMinutes {
   final int minutes;
 }
 
-T _safeEnum<T>(List<T> values, int? raw, int fallback) {
-  return values[(raw ?? fallback).clamp(0, values.length - 1)];
+enum RecurrenceFrequency {
+  daily(label: '매일'),
+  weekly(label: '매주'),
+  monthly(label: '매월'),
+  yearly(label: '매년');
+
+  const RecurrenceFrequency({required this.label});
+  final String label;
 }
+
+const int defaultEventColor = 0xFF2196F3;
+
+// ── 헬퍼 ────────────────────────────────────────────────────────
+
+T _safeEnum<T>(List<T> values, int? raw, int fallback) =>
+    values[(raw ?? fallback).clamp(0, values.length - 1)];
+
+// ── RecurrenceRule ───────────────────────────────────────────────
+
+class RecurrenceRule {
+  final RecurrenceFrequency frequency;
+  final int interval; // 반복 간격 (기본 1)
+  final DateTime? until; // 반복 종료일 (null = 무한)
+
+  const RecurrenceRule({
+    required this.frequency,
+    this.interval = 1,
+    this.until,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'frequency': frequency.index,
+        'interval': interval,
+        'until': until?.toIso8601String(),
+      };
+
+  factory RecurrenceRule.fromJson(Map<String, dynamic> j) => RecurrenceRule(
+        frequency:
+            _safeEnum(RecurrenceFrequency.values, j['frequency'] as int?, 0),
+        interval: j['interval'] as int? ?? 1,
+        until:
+            j['until'] != null ? DateTime.tryParse(j['until'] as String) : null,
+      );
+
+  /// 주어진 시작일 기준으로 다음 N개 반복 날짜 생성
+  List<DateTime> expand(DateTime start, {int limit = 365}) {
+    final result = <DateTime>[];
+    var cur = start;
+    while (result.length < limit) {
+      if (until != null && cur.isAfter(until!)) break;
+      result.add(cur);
+      cur = _advance(cur);
+    }
+    return result;
+  }
+
+  DateTime _advance(DateTime d) {
+    switch (frequency) {
+      case RecurrenceFrequency.daily:
+        return d.add(Duration(days: interval));
+      case RecurrenceFrequency.weekly:
+        return d.add(Duration(days: 7 * interval));
+      case RecurrenceFrequency.monthly:
+        return DateTime(d.year, d.month + interval, d.day);
+      case RecurrenceFrequency.yearly:
+        return DateTime(d.year + interval, d.month, d.day);
+    }
+  }
+}
+
+// ── AppSettings ──────────────────────────────────────────────────
 
 class AppSettings {
   final bool showLunarCalendar;
@@ -101,57 +173,46 @@ class AppSettings {
     this.calendarNavMode = CalendarNavMode.arrow,
   });
 
+  /// 현재 소리/진동 설정을 종합한 실효 AlarmMode
   AlarmMode get effectiveMode {
-    if (globalSilentMode) {
-      return AlarmMode.silent;
-    }
-    if (soundEnabled && vibrationEnabled) {
-      return AlarmMode.soundAndVibration;
-    }
-    if (soundEnabled) {
-      return AlarmMode.soundOnly;
-    }
-    if (vibrationEnabled) {
-      return AlarmMode.vibrationOnly;
-    }
+    if (globalSilentMode) return AlarmMode.silent;
+    if (soundEnabled && vibrationEnabled) return AlarmMode.soundAndVibration;
+    if (soundEnabled) return AlarmMode.soundOnly;
+    if (vibrationEnabled) return AlarmMode.vibrationOnly;
     return AlarmMode.silent;
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'showLunarCalendar': showLunarCalendar,
-      'showHolidays': showHolidays,
-      'masterEnabled': masterEnabled,
-      'soundEnabled': soundEnabled,
-      'vibrationEnabled': vibrationEnabled,
-      'globalSilentMode': globalSilentMode,
-      'soundOption': soundOption.index,
-      'vibrationPattern': vibrationPattern.index,
-      'customSoundPath': customSoundPath,
-      'currentTheme': currentTheme.index,
-      'calendarNavMode': calendarNavMode.index,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'showLunarCalendar': showLunarCalendar,
+        'showHolidays': showHolidays,
+        'masterEnabled': masterEnabled,
+        'soundEnabled': soundEnabled,
+        'vibrationEnabled': vibrationEnabled,
+        'globalSilentMode': globalSilentMode,
+        'soundOption': soundOption.index,
+        'vibrationPattern': vibrationPattern.index,
+        'customSoundPath': customSoundPath,
+        'currentTheme': currentTheme.index,
+        'calendarNavMode': calendarNavMode.index,
+      };
 
-  factory AppSettings.fromJson(Map<String, dynamic> j) {
-    return AppSettings(
-      showLunarCalendar: j['showLunarCalendar'] ?? false,
-      showHolidays: j['showHolidays'] ?? true,
-      masterEnabled: j['masterEnabled'] ?? true,
-      soundEnabled: j['soundEnabled'] ?? true,
-      vibrationEnabled: j['vibrationEnabled'] ?? true,
-      globalSilentMode: j['globalSilentMode'] ?? false,
-      soundOption:
-          _safeEnum(NotificationSound.values, j['soundOption'] as int?, 0),
-      vibrationPattern:
-          _safeEnum(VibrationPattern.values, j['vibrationPattern'] as int?, 1),
-      customSoundPath: j['customSoundPath'],
-      currentTheme: _safeEnum(
-          AppTheme.values, j['currentTheme'] as int?, AppTheme.samsung.index),
-      calendarNavMode:
-          _safeEnum(CalendarNavMode.values, j['calendarNavMode'] as int?, 0),
-    );
-  }
+  factory AppSettings.fromJson(Map<String, dynamic> j) => AppSettings(
+        showLunarCalendar: j['showLunarCalendar'] ?? false,
+        showHolidays: j['showHolidays'] ?? true,
+        masterEnabled: j['masterEnabled'] ?? true,
+        soundEnabled: j['soundEnabled'] ?? true,
+        vibrationEnabled: j['vibrationEnabled'] ?? true,
+        globalSilentMode: j['globalSilentMode'] ?? false,
+        soundOption:
+            _safeEnum(NotificationSound.values, j['soundOption'] as int?, 0),
+        vibrationPattern: _safeEnum(
+            VibrationPattern.values, j['vibrationPattern'] as int?, 1),
+        customSoundPath: j['customSoundPath'],
+        currentTheme: _safeEnum(
+            AppTheme.values, j['currentTheme'] as int?, AppTheme.samsung.index),
+        calendarNavMode:
+            _safeEnum(CalendarNavMode.values, j['calendarNavMode'] as int?, 0),
+      );
 
   AppSettings copyWith({
     bool? showLunarCalendar,
@@ -166,31 +227,32 @@ class AppSettings {
     bool clearCustom = false,
     AppTheme? currentTheme,
     CalendarNavMode? calendarNavMode,
-  }) {
-    return AppSettings(
-      showLunarCalendar: showLunarCalendar ?? this.showLunarCalendar,
-      showHolidays: showHolidays ?? this.showHolidays,
-      masterEnabled: masterEnabled ?? this.masterEnabled,
-      soundEnabled: soundEnabled ?? this.soundEnabled,
-      vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
-      globalSilentMode: globalSilentMode ?? this.globalSilentMode,
-      soundOption: soundOption ?? this.soundOption,
-      vibrationPattern: vibrationPattern ?? this.vibrationPattern,
-      customSoundPath:
-          clearCustom ? null : (customSoundPath ?? this.customSoundPath),
-      currentTheme: currentTheme ?? this.currentTheme,
-      calendarNavMode: calendarNavMode ?? this.calendarNavMode,
-    );
-  }
+  }) =>
+      AppSettings(
+        showLunarCalendar: showLunarCalendar ?? this.showLunarCalendar,
+        showHolidays: showHolidays ?? this.showHolidays,
+        masterEnabled: masterEnabled ?? this.masterEnabled,
+        soundEnabled: soundEnabled ?? this.soundEnabled,
+        vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
+        globalSilentMode: globalSilentMode ?? this.globalSilentMode,
+        soundOption: soundOption ?? this.soundOption,
+        vibrationPattern: vibrationPattern ?? this.vibrationPattern,
+        customSoundPath:
+            clearCustom ? null : (customSoundPath ?? this.customSoundPath),
+        currentTheme: currentTheme ?? this.currentTheme,
+        calendarNavMode: calendarNavMode ?? this.calendarNavMode,
+      );
 }
+
+// ── CalendarEvent ────────────────────────────────────────────────
 
 class CalendarEvent {
   final int id;
   final String title;
-  final String date;
-  final String? endDate;
-  final String? startTime;
-  final String? endTime;
+  final String date; // 'YYYY-MM-DD' (시작일)
+  final String? endDate; // 'YYYY-MM-DD' (종료일, 단일일이면 null)
+  final String? startTime; // 'HH:mm'
+  final String? endTime; // 'HH:mm'
   final int? colorValue;
   final bool isAllDay;
   final bool isAlarmOn;
@@ -199,6 +261,13 @@ class CalendarEvent {
   final NotificationSound soundOption;
   final VibrationPattern vibrationPattern;
   final String? customSoundPath;
+  final RecurrenceRule? recurrenceRule;
+
+  // 반복 인스턴스 전용 필드 (DB 저장 안 함)
+  final int? parentId; // 원본 이벤트 id
+  final bool isRecurrenceInstance;
+
+  // 미리 계산된 DateTime (생성자에서 파싱)
   final DateTime startDt;
   final DateTime endDt;
 
@@ -217,82 +286,90 @@ class CalendarEvent {
     this.soundOption = NotificationSound.system,
     this.vibrationPattern = VibrationPattern.heartbeat,
     this.customSoundPath,
+    this.recurrenceRule,
+    this.parentId,
+    this.isRecurrenceInstance = false,
   })  : startDt = DateTime.parse(date),
         endDt =
             endDate != null ? DateTime.parse(endDate) : DateTime.parse(date);
 
-  bool get isHoliday {
-    return id < 0;
+  // ── 계산 프로퍼티 (UI 작성 편의) ─────────────────────────────
+
+  /// 공휴일 여부 (id < 0)
+  bool get isHoliday => id < 0;
+
+  /// 여러 날에 걸친 일정 여부
+  bool get isMultiDay =>
+      startDt.year != endDt.year ||
+      startDt.month != endDt.month ||
+      startDt.day != endDt.day;
+
+  /// 오늘 일정 여부
+  bool get isToday {
+    final now = DateTime.now();
+    return startDt.year == now.year &&
+        startDt.month == now.month &&
+        startDt.day == now.day;
   }
 
+  /// 알림 발생 시각 (null = 알림 없음)
   DateTime? get alarmDateTime {
-    if (alarmMinutes == AlarmMinutes.none) {
-      return null;
-    }
+    if (alarmMinutes == AlarmMinutes.none) return null;
     if (isAllDay) {
       return DateTime(startDt.year, startDt.month, startDt.day, 9, 0)
           .subtract(Duration(minutes: alarmMinutes.minutes));
     }
-    if (startTime == null) {
-      return null;
-    }
+    if (startTime == null) return null;
     final parts = startTime!.split(':');
-    return DateTime(
-      startDt.year,
-      startDt.month,
-      startDt.day,
-      int.parse(parts[0]),
-      int.parse(parts[1]),
-    ).subtract(Duration(minutes: alarmMinutes.minutes));
+    return DateTime(startDt.year, startDt.month, startDt.day,
+            int.parse(parts[0]), int.parse(parts[1]))
+        .subtract(Duration(minutes: alarmMinutes.minutes));
   }
 
-  bool get isMultiDay {
-    return startDt.year != endDt.year ||
-        startDt.month != endDt.month ||
-        startDt.day != endDt.day;
-  }
+  // ── 직렬화 ───────────────────────────────────────────────────
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'date': date,
-      'endDate': endDate,
-      'colorValue': colorValue,
-      'isAllDay': isAllDay,
-      'startTime': startTime,
-      'endTime': endTime,
-      'alarmMinutes': alarmMinutes.index,
-      'eventAlarmMode': eventAlarmMode.index,
-      'isAlarmOn': isAlarmOn,
-      'soundOption': soundOption.index,
-      'vibrationPattern': vibrationPattern.index,
-      'customSoundPath': customSoundPath,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'date': date,
+        'endDate': endDate,
+        'colorValue': colorValue,
+        'isAllDay': isAllDay,
+        'startTime': startTime,
+        'endTime': endTime,
+        'alarmMinutes': alarmMinutes.index,
+        'eventAlarmMode': eventAlarmMode.index,
+        'isAlarmOn': isAlarmOn,
+        'soundOption': soundOption.index,
+        'vibrationPattern': vibrationPattern.index,
+        'customSoundPath': customSoundPath,
+        'recurrenceRule': recurrenceRule?.toJson(),
+      };
 
-  factory CalendarEvent.fromJson(Map<String, dynamic> j) {
-    return CalendarEvent(
-      id: j['id'] as int,
-      title: j['title'] as String,
-      date: j['date'] as String,
-      endDate: j['endDate'] as String?,
-      colorValue: j['colorValue'] as int?,
-      isAllDay: j['isAllDay'] as bool? ?? false,
-      startTime: j['startTime'] as String?,
-      endTime: j['endTime'] as String?,
-      alarmMinutes:
-          _safeEnum(AlarmMinutes.values, j['alarmMinutes'] as int?, 0),
-      eventAlarmMode: _safeEnum(AlarmMode.values, j['eventAlarmMode'] as int?,
-          AlarmMode.soundAndVibration.index),
-      isAlarmOn: j['isAlarmOn'] as bool? ?? true,
-      soundOption:
-          _safeEnum(NotificationSound.values, j['soundOption'] as int?, 0),
-      vibrationPattern:
-          _safeEnum(VibrationPattern.values, j['vibrationPattern'] as int?, 1),
-      customSoundPath: j['customSoundPath'] as String?,
-    );
-  }
+  factory CalendarEvent.fromJson(Map<String, dynamic> j) => CalendarEvent(
+        id: j['id'] as int,
+        title: j['title'] as String,
+        date: j['date'] as String,
+        endDate: j['endDate'] as String?,
+        colorValue: j['colorValue'] as int?,
+        isAllDay: j['isAllDay'] as bool? ?? false,
+        startTime: j['startTime'] as String?,
+        endTime: j['endTime'] as String?,
+        alarmMinutes:
+            _safeEnum(AlarmMinutes.values, j['alarmMinutes'] as int?, 0),
+        eventAlarmMode: _safeEnum(AlarmMode.values, j['eventAlarmMode'] as int?,
+            AlarmMode.soundAndVibration.index),
+        isAlarmOn: j['isAlarmOn'] as bool? ?? true,
+        soundOption:
+            _safeEnum(NotificationSound.values, j['soundOption'] as int?, 0),
+        vibrationPattern: _safeEnum(
+            VibrationPattern.values, j['vibrationPattern'] as int?, 1),
+        customSoundPath: j['customSoundPath'] as String?,
+        recurrenceRule: j['recurrenceRule'] != null
+            ? RecurrenceRule.fromJson(
+                j['recurrenceRule'] as Map<String, dynamic>)
+            : null,
+      );
 
   CalendarEvent copyWith({
     int? id,
@@ -309,22 +386,29 @@ class CalendarEvent {
     NotificationSound? soundOption,
     VibrationPattern? vibrationPattern,
     String? customSoundPath,
-  }) {
-    return CalendarEvent(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      date: date ?? this.date,
-      endDate: endDate ?? this.endDate,
-      colorValue: colorValue ?? this.colorValue,
-      isAllDay: isAllDay ?? this.isAllDay,
-      startTime: startTime ?? this.startTime,
-      endTime: endTime ?? this.endTime,
-      alarmMinutes: alarmMinutes ?? this.alarmMinutes,
-      eventAlarmMode: eventAlarmMode ?? this.eventAlarmMode,
-      isAlarmOn: isAlarmOn ?? this.isAlarmOn,
-      soundOption: soundOption ?? this.soundOption,
-      vibrationPattern: vibrationPattern ?? this.vibrationPattern,
-      customSoundPath: customSoundPath ?? this.customSoundPath,
-    );
-  }
+    RecurrenceRule? recurrenceRule,
+    bool clearRecurrence = false,
+    int? parentId,
+    bool? isRecurrenceInstance,
+  }) =>
+      CalendarEvent(
+        id: id ?? this.id,
+        title: title ?? this.title,
+        date: date ?? this.date,
+        endDate: endDate ?? this.endDate,
+        colorValue: colorValue ?? this.colorValue,
+        isAllDay: isAllDay ?? this.isAllDay,
+        startTime: startTime ?? this.startTime,
+        endTime: endTime ?? this.endTime,
+        alarmMinutes: alarmMinutes ?? this.alarmMinutes,
+        eventAlarmMode: eventAlarmMode ?? this.eventAlarmMode,
+        isAlarmOn: isAlarmOn ?? this.isAlarmOn,
+        soundOption: soundOption ?? this.soundOption,
+        vibrationPattern: vibrationPattern ?? this.vibrationPattern,
+        customSoundPath: customSoundPath ?? this.customSoundPath,
+        recurrenceRule:
+            clearRecurrence ? null : (recurrenceRule ?? this.recurrenceRule),
+        parentId: parentId ?? this.parentId,
+        isRecurrenceInstance: isRecurrenceInstance ?? this.isRecurrenceInstance,
+      );
 }

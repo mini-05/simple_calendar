@@ -1,8 +1,8 @@
-# v3.6.2
+# v4.1.0
 name: simple_calendar
-description: My Calendar App v3.6.2
+description: My Calendar App v4.1.0 — SoC 리팩터링 + Riverpod + 반복 일정
 publish_to: none
-version: 3.6.2+1
+version: 4.1.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -13,16 +13,33 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
+  # 상태 관리
+  flutter_riverpod: ^2.5.1
+
+  # 달력 UI
   table_calendar: ^3.1.2
+
+  # 저장소
   flutter_secure_storage: ^9.0.0
+
+  # 알림
   flutter_local_notifications: ^18.0.0
   timezone: ^0.9.4
   flutter_timezone: ^5.0.1
+
+  # 파일 / 공유
   file_picker: ^8.1.0
-  permission_handler: ^11.3.0
-  lunar: ^1.7.6
   path_provider: ^2.1.2
   share_plus: ^7.2.1
+
+  # 권한
+  permission_handler: ^11.3.0
+
+  # 음력 변환
+  lunar: ^1.7.6
+
+  # 홈 위젯 활성화
+  home_widget: ^0.7.0
 
 dev_dependencies:
   flutter_test:

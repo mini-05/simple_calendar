@@ -1,5 +1,7 @@
+// v4.1.0
+// services.dart
+// lib/services/services.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
-// v3.6.2
 import 'dart:io' show File, Platform;
 import 'dart:convert';
 import 'dart:math' as math;
@@ -16,20 +18,16 @@ import 'package:share_plus/share_plus.dart';
 import '../models/models.dart';
 
 void appLog(String msg) {
-  if (!kReleaseMode) {
-    debugPrint(msg);
-  }
+  if (!kReleaseMode) debugPrint(msg);
 }
 
-String encodeEventsToJson(List<CalendarEvent> events) {
-  return jsonEncode(events.map((e) => e.toJson()).toList());
-}
+String encodeEventsToJson(List<CalendarEvent> events) =>
+    jsonEncode(events.map((e) => e.toJson()).toList());
 
-List<CalendarEvent> decodeEventsFromJson(String raw) {
-  return (jsonDecode(raw) as List)
-      .map((e) => CalendarEvent.fromJson(e as Map<String, dynamic>))
-      .toList();
-}
+List<CalendarEvent> decodeEventsFromJson(String raw) =>
+    (jsonDecode(raw) as List)
+        .map((e) => CalendarEvent.fromJson(e as Map<String, dynamic>))
+        .toList();
 
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -37,12 +35,10 @@ class NotificationService {
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   static Future<void> init() async {
-    if (!_isMobile) {
-      return;
-    }
+    if (!_isMobile) return;
     tz_data.initializeTimeZones();
     try {
-      final tz.Location loc =
+      final loc =
           tz.getLocation((await FlutterTimezone.getLocalTimezone()).toString());
       tz.setLocalLocation(loc);
     } catch (_) {
@@ -56,14 +52,11 @@ class NotificationService {
 
   static Future<String> _ensureChannel(AlarmMode mode, NotificationSound sound,
       VibrationPattern vib, String? customPath) async {
-    if (!_isMobile) {
-      return 'cal_silent';
-    }
+    if (!_isMobile) return 'cal_silent';
     final impl = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    if (impl == null) {
-      return 'cal_silent';
-    }
+    if (impl == null) return 'cal_silent';
+
     if (mode == AlarmMode.silent) {
       await impl.createNotificationChannel(const AndroidNotificationChannel(
           'cal_silent', '무음 알림',
@@ -73,206 +66,192 @@ class NotificationService {
       return 'cal_silent';
     }
 
-    String idStr = 'cal';
-    String nameStr = '알림';
-    AndroidNotificationSound? androidSound;
-    bool playSnd = false;
-    bool playVib = false;
+    String id = 'cal';
+    String name = '알림';
+    AndroidNotificationSound? snd;
+    bool playSnd = false, playVib = false;
 
     if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
       playSnd = true;
       if (sound == NotificationSound.custom && customPath != null) {
-        androidSound = UriAndroidNotificationSound('file://$customPath');
-        idStr = '${idStr}_cust_${customPath.hashCode}';
-        nameStr = '내 음악 알림';
+        snd = UriAndroidNotificationSound('file://$customPath');
+        id = '${id}_cust_${customPath.hashCode}';
+        name = '내 음악 알림';
       } else {
-        if (sound != NotificationSound.system) {
-          androidSound = RawResourceAndroidNotificationSound(sound.fileName);
-        }
-        idStr = '${idStr}_snd_${sound.name}';
-        nameStr = '소리 알림';
+        if (sound != NotificationSound.system)
+          snd = RawResourceAndroidNotificationSound(sound.fileName);
+        id = '${id}_snd_${sound.name}';
+        name = '소리 알림';
       }
     }
     if (mode == AlarmMode.vibrationOnly ||
         mode == AlarmMode.soundAndVibration) {
       playVib = true;
-      idStr = '${idStr}_vib_${vib.name}';
-      nameStr = playSnd ? '$nameStr (진동포함)' : '진동 전용 알림';
+      id = '${id}_vib_${vib.name}';
+      name = playSnd ? '$name (진동포함)' : '진동 전용 알림';
     }
 
-    await impl.createNotificationChannel(AndroidNotificationChannel(
-        idStr, nameStr,
+    await impl.createNotificationChannel(AndroidNotificationChannel(id, name,
         importance: Importance.high,
         playSound: playSnd,
-        sound: androidSound,
+        sound: snd,
         enableVibration: playVib,
         vibrationPattern: playVib ? vib.patternInt64 : null));
-    return idStr;
+    return id;
   }
 
-  static Future<void> scheduleEventAlarm(
-      {required CalendarEvent event, required AppSettings settings}) async {
+  static Future<void> scheduleEventAlarm({
+    required CalendarEvent event,
+    required AppSettings settings,
+  }) async {
     if (!_isMobile ||
         !settings.masterEnabled ||
         !event.isAlarmOn ||
         event.alarmDateTime == null ||
-        event.alarmDateTime!.isBefore(DateTime.now())) {
-      return;
-    }
+        event.alarmDateTime!.isBefore(DateTime.now())) return;
+
     try {
       final mode =
           settings.globalSilentMode ? AlarmMode.silent : event.eventAlarmMode;
       final channelId = await _ensureChannel(mode, event.soundOption,
           event.vibrationPattern, event.customSoundPath);
-      AndroidNotificationSound? snd;
 
+      AndroidNotificationSound? snd;
       if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
         if (event.soundOption == NotificationSound.custom &&
-            event.customSoundPath != null) {
+            event.customSoundPath != null)
           snd = UriAndroidNotificationSound('file://${event.customSoundPath}');
-        } else if (event.soundOption != NotificationSound.system) {
+        else if (event.soundOption != NotificationSound.system)
           snd = RawResourceAndroidNotificationSound(event.soundOption.fileName);
-        }
       }
 
       Int64List? vib;
       if (mode == AlarmMode.vibrationOnly ||
-          mode == AlarmMode.soundAndVibration) {
+          mode == AlarmMode.soundAndVibration)
         vib = event.vibrationPattern.patternInt64;
-      }
 
       await _plugin.zonedSchedule(
-          event.id,
-          '📅 일정 알림',
-          event.title,
-          tz.TZDateTime.from(event.alarmDateTime!, tz.local),
-          NotificationDetails(
-              android: AndroidNotificationDetails(channelId, '캘린더 알림',
-                  importance: mode == AlarmMode.silent
-                      ? Importance.low
-                      : Importance.high,
-                  priority: Priority.high,
-                  sound: snd,
-                  playSound: snd != null ||
-                      event.soundOption == NotificationSound.system,
-                  enableVibration: vib != null,
-                  vibrationPattern: vib,
-                  silent: mode == AlarmMode.silent)),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime);
+        event.id,
+        '📅 일정 알림',
+        event.title,
+        tz.TZDateTime.from(event.alarmDateTime!, tz.local),
+        NotificationDetails(
+          android: AndroidNotificationDetails(channelId, '캘린더 알림',
+              importance:
+                  mode == AlarmMode.silent ? Importance.low : Importance.high,
+              priority: Priority.high,
+              sound: snd,
+              playSound:
+                  snd != null || event.soundOption == NotificationSound.system,
+              enableVibration: vib != null,
+              vibrationPattern: vib,
+              silent: mode == AlarmMode.silent),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
     } catch (e) {
       appLog('[NotifSvc] 알림 스케줄 실패: $e');
     }
   }
 
   static Future<void> cancelAlarm(int id) async {
-    if (!_isMobile) {
-      return;
-    }
+    if (!_isMobile) return;
     await _plugin.cancel(id);
   }
 
   static Future<void> showTestNotification(
       AppSettings settings, AlarmMode testMode) async {
-    if (!_isMobile) {
-      return;
-    }
+    if (!_isMobile) return;
     try {
       final mode = settings.globalSilentMode ? AlarmMode.silent : testMode;
       final channelId = await _ensureChannel(mode, settings.soundOption,
           settings.vibrationPattern, settings.customSoundPath);
-      AndroidNotificationSound? snd;
 
+      AndroidNotificationSound? snd;
       if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
         if (settings.soundOption == NotificationSound.custom &&
-            settings.customSoundPath != null) {
+            settings.customSoundPath != null)
           snd =
               UriAndroidNotificationSound('file://${settings.customSoundPath}');
-        } else if (settings.soundOption != NotificationSound.system) {
+        else if (settings.soundOption != NotificationSound.system)
           snd = RawResourceAndroidNotificationSound(
               settings.soundOption.fileName);
-        }
       }
 
       Int64List? vib;
       if (mode == AlarmMode.vibrationOnly ||
-          mode == AlarmMode.soundAndVibration) {
+          mode == AlarmMode.soundAndVibration)
         vib = settings.vibrationPattern.patternInt64;
-      }
 
       await _plugin.show(
-          9999,
-          '🔔 테스트 알림',
-          '알림이 이렇게 울립니다.',
-          NotificationDetails(
-              android: AndroidNotificationDetails(channelId, '테스트 알림',
-                  importance: mode == AlarmMode.silent
-                      ? Importance.low
-                      : Importance.high,
-                  priority: Priority.high,
-                  sound: snd,
-                  playSound: snd != null ||
-                      settings.soundOption == NotificationSound.system,
-                  enableVibration: vib != null,
-                  vibrationPattern: vib,
-                  silent: mode == AlarmMode.silent)));
+        9999,
+        '🔔 테스트 알림',
+        '알림이 이렇게 울립니다.',
+        NotificationDetails(
+          android: AndroidNotificationDetails(channelId, '테스트 알림',
+              importance:
+                  mode == AlarmMode.silent ? Importance.low : Importance.high,
+              priority: Priority.high,
+              sound: snd,
+              playSound: snd != null ||
+                  settings.soundOption == NotificationSound.system,
+              enableVibration: vib != null,
+              vibrationPattern: vib,
+              silent: mode == AlarmMode.silent),
+        ),
+      );
     } catch (e) {
       appLog('[NotifSvc] 테스트 알림 실패: $e');
     }
   }
 
   static Future<void> requestPermissions() async {
-    if (!_isMobile) {
-      return;
-    }
+    if (!_isMobile) return;
     final audioStatus = await Permission.audio.request();
-    if (!audioStatus.isGranted) {
-      await Permission.storage.request();
-    }
+    if (!audioStatus.isGranted) await Permission.storage.request();
     await Permission.notification.request();
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    if (android != null) {
-      await android.requestExactAlarmsPermission();
-    }
+    await android?.requestExactAlarmsPermission();
   }
 }
 
-const _secureStorage = FlutterSecureStorage(
+const _ss = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true));
 
 class AppSettingsStorage {
-  static String get _key => String.fromCharCodes([
-        97,
-        112,
-        112,
-        95,
-        115,
-        101,
-        116,
-        116,
-        105,
-        110,
-        103,
-        115,
-        95,
-        101,
-        110,
-        99,
-        114,
-        121,
-        112,
-        116,
-        101,
-        100,
-        95,
-        118,
-        49
-      ]);
+  static final String _key = String.fromCharCodes([
+    97,
+    112,
+    112,
+    95,
+    115,
+    101,
+    116,
+    116,
+    105,
+    110,
+    103,
+    115,
+    95,
+    101,
+    110,
+    99,
+    114,
+    121,
+    112,
+    116,
+    101,
+    100,
+    95,
+    118,
+    49
+  ]);
 
   static Future<AppSettings> load() async {
-    final raw = await _secureStorage.read(key: _key);
+    final raw = await _ss.read(key: _key);
     if (raw != null) {
       try {
         return AppSettings.fromJson(jsonDecode(raw));
@@ -281,48 +260,45 @@ class AppSettingsStorage {
     return const AppSettings();
   }
 
-  static Future<void> save(AppSettings s) async {
-    await _secureStorage.write(key: _key, value: jsonEncode(s.toJson()));
-  }
+  static Future<void> save(AppSettings s) async =>
+      _ss.write(key: _key, value: jsonEncode(s.toJson()));
 }
 
 class EventStorage {
-  static String get _eventsKey => String.fromCharCodes([
-        99,
-        97,
-        108,
-        101,
-        110,
-        100,
-        97,
-        114,
-        95,
-        101,
-        118,
-        101,
-        110,
-        116,
-        115,
-        95,
-        101,
-        110,
-        99,
-        114,
-        121,
-        112,
-        116,
-        101,
-        100,
-        95,
-        118,
-        49
-      ]);
+  static final String _key = String.fromCharCodes([
+    99,
+    97,
+    108,
+    101,
+    110,
+    100,
+    97,
+    114,
+    95,
+    101,
+    118,
+    101,
+    110,
+    116,
+    115,
+    95,
+    101,
+    110,
+    99,
+    114,
+    121,
+    112,
+    116,
+    101,
+    100,
+    95,
+    118,
+    49
+  ]);
 
   static Future<List<CalendarEvent>> loadAll() async {
-    final raw = await _secureStorage.read(key: _eventsKey);
-    if (raw == null) {
-      return [];
-    }
+    final raw = await _ss.read(key: _key);
+    if (raw == null) return [];
     try {
       return await compute(decodeEventsFromJson, raw);
     } catch (_) {
@@ -331,99 +307,101 @@ class EventStorage {
   }
 
   static Future<void> saveAll(List<CalendarEvent> events) async {
-    final jsonString = await compute(encodeEventsToJson, events);
-    await _secureStorage.write(key: _eventsKey, value: jsonString);
+    final toSave = events.where((e) => !e.isRecurrenceInstance).toList();
+    final jsonString = await compute(encodeEventsToJson, toSave);
+    await _ss.write(key: _key, value: jsonString);
   }
 
-  static int generateId() {
-    return ((DateTime.now().microsecondsSinceEpoch & 0x7FFFFFFF) ^
-        ((math.Random().nextInt(0xFFFF) << 15) & 0x7FFFFFFF));
-  }
+  static int generateId() =>
+      ((DateTime.now().microsecondsSinceEpoch & 0x7FFFFFFF) ^
+          ((math.Random().nextInt(0xFFFF) << 15) & 0x7FFFFFFF));
 }
 
 class IcsService {
+  static String _escapeIcsText(String text) => text
+      .replaceAll('\\', '\\\\')
+      .replaceAll(',', '\\,')
+      .replaceAll(';', '\\;')
+      .replaceAll('\n', '\\n')
+      .replaceAll('\r', '');
+
   static Future<void> exportToIcs(List<CalendarEvent> events) async {
     try {
-      final buffer = StringBuffer();
-      buffer.writeln('BEGIN:VCALENDAR');
-      buffer.writeln('VERSION:2.0');
-      buffer.writeln('PRODID:-//My Calendar App//v3.6.2//EN');
+      final buf = StringBuffer();
+      buf.writeln('BEGIN:VCALENDAR');
+      buf.writeln('VERSION:2.0');
+      buf.writeln('PRODID:-//My Calendar App//v4.1.0//EN');
 
-      String formatDt(DateTime d) {
-        return '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
-      }
+      String formatDt(DateTime d) =>
+          '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
 
-      for (var e in events) {
-        buffer.writeln('BEGIN:VEVENT');
-        buffer.writeln('UID:${e.id}@mycalendar.app');
-        buffer.writeln('SUMMARY:${e.title}');
-
+      for (final e
+          in events.where((e) => !e.isHoliday && !e.isRecurrenceInstance)) {
+        buf.writeln('BEGIN:VEVENT');
+        buf.writeln('UID:${e.id}@mycalendar.app');
+        buf.writeln('SUMMARY:${_escapeIcsText(e.title)}');
         if (e.isAllDay) {
-          buffer.writeln('DTSTART;VALUE=DATE:${formatDt(e.startDt)}');
-          buffer.writeln(
+          buf.writeln('DTSTART;VALUE=DATE:${formatDt(e.startDt)}');
+          buf.writeln(
               'DTEND;VALUE=DATE:${formatDt(e.endDt.add(const Duration(days: 1)))}');
         } else {
-          String startTimeStr = (e.startTime ?? '00:00').replaceAll(':', '');
-          String endTimeStr = (e.endTime ?? '00:00').replaceAll(':', '');
-          String sTime = '${startTimeStr}00';
-          String eTime = '${endTimeStr}00';
-
-          buffer.writeln('DTSTART:${formatDt(e.startDt)}T$sTime');
-          buffer.writeln('DTEND:${formatDt(e.endDt)}T$eTime');
+          final sT = (e.startTime ?? '00:00').replaceAll(':', '');
+          final eT = (e.endTime ?? '00:00').replaceAll(':', '');
+          buf.writeln('DTSTART:${formatDt(e.startDt)}T${sT}00');
+          buf.writeln('DTEND:${formatDt(e.endDt)}T${eT}00');
         }
-        buffer.writeln('END:VEVENT');
+        if (e.recurrenceRule != null) {
+          final r = e.recurrenceRule!;
+          final freq = r.frequency.name.toUpperCase();
+          var rrule = 'RRULE:FREQ=$freq;INTERVAL=${r.interval}';
+          if (r.until != null) {
+            final u = r.until!;
+            rrule += ';UNTIL=${formatDt(u)}';
+          }
+          buf.writeln(rrule);
+        }
+        buf.writeln('END:VEVENT');
       }
-      buffer.writeln('END:VCALENDAR');
+      buf.writeln('END:VCALENDAR');
 
-      final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/my_calendar_backup.ics');
-      await file.writeAsString(buffer.toString());
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/my_calendar_backup.ics');
+      await file.writeAsString(buf.toString());
       await Share.shareXFiles([XFile(file.path)], text: '내 캘린더 ics 백업 파일입니다.');
-    } catch (_) {
-      appLog('ICS 백업 실패');
+    } catch (e) {
+      appLog('ICS 내보내기 실패: $e');
     }
   }
 
   static Future<bool> importFromIcs() async {
     try {
       await Permission.storage.request();
-      FilePickerResult? result =
-          await FilePicker.platform.pickFiles(type: FileType.any);
-      if (result == null || result.files.single.path == null) {
-        return false;
-      }
+      final result = await FilePicker.platform.pickFiles(type: FileType.any);
+      if (result == null || result.files.single.path == null) return false;
 
-      File file = File(result.files.single.path!);
-      String content = await file.readAsString();
-      List<CalendarEvent> importedEvents = [];
+      final content = await File(result.files.single.path!).readAsString();
+      final imported = <CalendarEvent>[];
       final lines = const LineSplitter().convert(content);
       bool inEvent = false;
-      String? summary;
-      String? dtStart;
-      String? dtEnd;
+      String? summary, dtStart, dtEnd;
 
-      for (var line in lines) {
+      for (final line in lines) {
         if (line.startsWith('BEGIN:VEVENT')) {
           inEvent = true;
-          summary = null;
-          dtStart = null;
-          dtEnd = null;
+          summary = dtStart = dtEnd = null;
         } else if (line.startsWith('END:VEVENT')) {
           if (inEvent && summary != null && dtStart != null) {
-            DateTime? sD = _parseIcsDate(dtStart);
-            DateTime? eD = dtEnd != null ? _parseIcsDate(dtEnd) : sD;
-            String? sT = _parseIcsTime(dtStart);
-            String? eT = dtEnd != null ? _parseIcsTime(dtEnd) : sT;
+            final sD = _parseDate(dtStart);
+            final eD = dtEnd != null ? _parseDate(dtEnd) : sD;
+            final sT = _parseTime(dtStart);
+            final eT = dtEnd != null ? _parseTime(dtEnd) : sT;
             if (sD != null) {
-              importedEvents.add(CalendarEvent(
+              imported.add(CalendarEvent(
                 id: EventStorage.generateId(),
                 title: summary,
-                date:
-                    '${sD.year}-${sD.month.toString().padLeft(2, '0')}-${sD.day.toString().padLeft(2, '0')}',
-                endDate: eD != null
-                    ? '${eD.year}-${eD.month.toString().padLeft(2, '0')}-${eD.day.toString().padLeft(2, '0')}'
-                    : null,
-                isAllDay: (sT == null),
+                date: _fmtDateStr(sD),
+                endDate: eD != null ? _fmtDateStr(eD) : null,
+                isAllDay: sT == null,
                 startTime: sT,
                 endTime: eT,
               ));
@@ -431,18 +409,18 @@ class IcsService {
           }
           inEvent = false;
         } else if (inEvent) {
-          if (line.startsWith('SUMMARY:')) {
+          if (line.startsWith('SUMMARY:'))
             summary = line.substring(8);
-          } else if (line.startsWith('DTSTART')) {
+          else if (line.startsWith('DTSTART'))
             dtStart = line.substring(line.indexOf(':') + 1);
-          } else if (line.startsWith('DTEND')) {
+          else if (line.startsWith('DTEND'))
             dtEnd = line.substring(line.indexOf(':') + 1);
-          }
         }
       }
-      if (importedEvents.isNotEmpty) {
+
+      if (imported.isNotEmpty) {
         final existing = await EventStorage.loadAll();
-        existing.addAll(importedEvents);
+        existing.addAll(imported);
         await EventStorage.saveAll(existing);
         return true;
       }
@@ -452,19 +430,21 @@ class IcsService {
     }
   }
 
-  static DateTime? _parseIcsDate(String val) {
-    val = val.replaceAll('\r', '').replaceAll('Z', '');
-    if (val.length >= 8) {
+  static String _fmtDateStr(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  static DateTime? _parseDate(String v) {
+    v = v.replaceAll('\r', '').replaceAll('Z', '');
+    if (v.length >= 8)
       return DateTime.tryParse(
-          '${val.substring(0, 4)}-${val.substring(4, 6)}-${val.substring(6, 8)}');
-    }
+          '${v.substring(0, 4)}-${v.substring(4, 6)}-${v.substring(6, 8)}');
     return null;
   }
 
-  static String? _parseIcsTime(String val) {
-    if (val.contains('T') && val.length >= 15) {
-      int t = val.indexOf('T');
-      return '${val.substring(t + 1, t + 3)}:${val.substring(t + 3, t + 5)}';
+  static String? _parseTime(String v) {
+    if (v.contains('T') && v.length >= 15) {
+      final t = v.indexOf('T');
+      return '${v.substring(t + 1, t + 3)}:${v.substring(t + 3, t + 5)}';
     }
     return null;
   }
