@@ -1,4 +1,6 @@
-# v3.5.0
+# v4.1.0
+# build_apk.yml
+# .github/workflows/build_apk.yml
 name: Build Flutter APK and AAB
 
 on:
@@ -10,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -43,6 +46,13 @@ jobs:
           
       - name: Get dependencies
         run: flutter pub get
+
+      # 💡 [핵심 추가 1] pubspec.yaml 파일에서 버전을 추출하여 환경 변수에 저장합니다.
+      # (예: version: 4.1.0+1 -> + 뒷부분을 자르고 4.1.0만 가져옴)
+      - name: Extract version from pubspec.yaml
+        run: |
+          APP_VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}' | cut -d '+' -f 1)
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
         
       - name: Build APK
         run: flutter build apk --release --target-platform android-arm64
@@ -50,10 +60,11 @@ jobs:
       - name: Build AppBundle
         run: flutter build appbundle --release
         
+      # 💡 [핵심 추가 2] 위에서 만든 환경 변수(${{ env.APP_VERSION }})를 파일명에 조합합니다.
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-builds
+          name: simple_calendar_v${{ env.APP_VERSION }}
           path: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
