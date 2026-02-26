@@ -7,6 +7,10 @@ on:
   push:
     branches: [ "main", "master" ]
 
+# 💡 [중요] GitHub Actions 봇이 레포지토리에 커밋/푸시할 수 있도록 쓰기 권한 부여
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -43,16 +47,43 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+
+      # 💡 1. 모든 Dart 파일의 1번 줄 주석을 스캔하여 최신 버전(예: 4.1.0) 추출
+      - name: Extract max version from dart files
+        id: extract_version
+        run: |
+          EXTRACTED_VERSION=$(find lib -name "*.dart" -exec head -n 1 {} \; | grep -E "^// v" | sed 's/\/\/ v//' | sort -V | tail -n 1 | tr -d '[:space:]')
+          if [ -z "$EXTRACTED_VERSION" ]; then
+            EXTRACTED_VERSION="1.0.0" # 못 찾으면 기본값
+          fi
+          echo "찾아낸 최고 버전: $EXTRACTED_VERSION"
+          echo "APP_VERSION=$EXTRACTED_VERSION" >> $GITHUB_ENV
+
+      # 💡 2. 추출한 버전으로 pubspec.yaml 자동 수정 (빌드 번호는 깃허브 실행 번호 활용)
+      # 예: version: 4.1.0+15 (15번째 빌드인 경우)
+      - name: Auto-update pubspec.yaml version
+        run: |
+          NEW_VERSION="${{ env.APP_VERSION }}+${{ github.run_number }}"
+          echo "pubspec.yaml 버전을 $NEW_VERSION 으로 변경합니다."
+          sed -i "s/^version: .*/version: $NEW_VERSION/" pubspec.yaml
+
+      # 💡 3. 수정된 pubspec.yaml을 레포지토리에 자동 커밋 & 푸시
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          
+          # 변경사항이 있을 때만 커밋
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "🤖 빌드 봇: 버전 ${APP_VERSION} 자동 업데이트"
+            git push
+          else
+            echo "변경사항이 없어 커밋하지 않습니다."
+          fi
           
       - name: Get dependencies
         run: flutter pub get
-
-      # 💡 [핵심 추가 1] pubspec.yaml 파일에서 버전을 추출하여 환경 변수에 저장합니다.
-      # (예: version: 4.1.0+1 -> + 뒷부분을 자르고 4.1.0만 가져옴)
-      - name: Extract version from pubspec.yaml
-        run: |
-          APP_VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}' | cut -d '+' -f 1)
-          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
         
       - name: Build APK
         run: flutter build apk --release --target-platform android-arm64
@@ -60,11 +91,11 @@ jobs:
       - name: Build AppBundle
         run: flutter build appbundle --release
         
-      # 💡 [핵심 추가 2] 위에서 만든 환경 변수(${{ env.APP_VERSION }})를 파일명에 조합합니다.
+      # 💡 4. 파일명도 주석에서 추출한 버전에 맞춰서 생성
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: simple_calendar_v${{ env.APP_VERSION }}
+          name: simple_calendar_v${{ env.APP_VERSION }}_b${{ github.run_number }}
           path: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
