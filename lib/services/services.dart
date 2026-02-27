@@ -1,7 +1,6 @@
-// v4.1.0
-// services.dart
+// v4.3.0
+// gemini_services.dart
 // lib/services/services.dart
-// ignore_for_file: curly_braces_in_flow_control_structures
 import 'dart:io' show File, Platform;
 import 'dart:convert';
 import 'dart:math' as math;
@@ -18,7 +17,9 @@ import 'package:share_plus/share_plus.dart';
 import '../models/models.dart';
 
 void appLog(String msg) {
-  if (!kReleaseMode) debugPrint(msg);
+  if (!kReleaseMode) {
+    debugPrint(msg);
+  }
 }
 
 String encodeEventsToJson(List<CalendarEvent> events) =>
@@ -29,20 +30,33 @@ List<CalendarEvent> decodeEventsFromJson(String raw) =>
         .map((e) => CalendarEvent.fromJson(e as Map<String, dynamic>))
         .toList();
 
+// ── NotificationService ──────────────────────────────────────────
+
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool get _isMobile =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
-  static Future<void> init() async {
-    if (!_isMobile) return;
+  // 💡 [최적화] 시간대 설정만 빠르게 진행하는 경량 초기화 함수
+  static Future<void> initMinimal() async {
+    if (!_isMobile) {
+      return;
+    }
     tz_data.initializeTimeZones();
     try {
       final loc =
           tz.getLocation((await FlutterTimezone.getLocalTimezone()).toString());
       tz.setLocalLocation(loc);
-    } catch (_) {
+    } catch (e) {
+      appLog('[NotifSvc] 시간대 설정 실패, Asia/Seoul 사용: $e');
       tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
+    }
+  }
+
+  // 💡 [최적화] 무거운 알림 플러그인 초기화는 앱 렌더링 이후에 호출
+  static Future<void> initNotifications() async {
+    if (!_isMobile) {
+      return;
     }
     await _plugin.initialize(const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -52,10 +66,14 @@ class NotificationService {
 
   static Future<String> _ensureChannel(AlarmMode mode, NotificationSound sound,
       VibrationPattern vib, String? customPath) async {
-    if (!_isMobile) return 'cal_silent';
+    if (!_isMobile) {
+      return 'cal_silent';
+    }
     final impl = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    if (impl == null) return 'cal_silent';
+    if (impl == null) {
+      return 'cal_silent';
+    }
 
     if (mode == AlarmMode.silent) {
       await impl.createNotificationChannel(const AndroidNotificationChannel(
@@ -78,8 +96,9 @@ class NotificationService {
         id = '${id}_cust_${customPath.hashCode}';
         name = '내 음악 알림';
       } else {
-        if (sound != NotificationSound.system)
+        if (sound != NotificationSound.system) {
           snd = RawResourceAndroidNotificationSound(sound.fileName);
+        }
         id = '${id}_snd_${sound.name}';
         name = '소리 알림';
       }
@@ -108,7 +127,9 @@ class NotificationService {
         !settings.masterEnabled ||
         !event.isAlarmOn ||
         event.alarmDateTime == null ||
-        event.alarmDateTime!.isBefore(DateTime.now())) return;
+        event.alarmDateTime!.isBefore(DateTime.now())) {
+      return;
+    }
 
     try {
       final mode =
@@ -119,16 +140,18 @@ class NotificationService {
       AndroidNotificationSound? snd;
       if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
         if (event.soundOption == NotificationSound.custom &&
-            event.customSoundPath != null)
+            event.customSoundPath != null) {
           snd = UriAndroidNotificationSound('file://${event.customSoundPath}');
-        else if (event.soundOption != NotificationSound.system)
+        } else if (event.soundOption != NotificationSound.system) {
           snd = RawResourceAndroidNotificationSound(event.soundOption.fileName);
+        }
       }
 
       Int64List? vib;
       if (mode == AlarmMode.vibrationOnly ||
-          mode == AlarmMode.soundAndVibration)
+          mode == AlarmMode.soundAndVibration) {
         vib = event.vibrationPattern.patternInt64;
+      }
 
       await _plugin.zonedSchedule(
         event.id,
@@ -157,13 +180,17 @@ class NotificationService {
   }
 
   static Future<void> cancelAlarm(int id) async {
-    if (!_isMobile) return;
+    if (!_isMobile) {
+      return;
+    }
     await _plugin.cancel(id);
   }
 
   static Future<void> showTestNotification(
       AppSettings settings, AlarmMode testMode) async {
-    if (!_isMobile) return;
+    if (!_isMobile) {
+      return;
+    }
     try {
       final mode = settings.globalSilentMode ? AlarmMode.silent : testMode;
       final channelId = await _ensureChannel(mode, settings.soundOption,
@@ -172,18 +199,20 @@ class NotificationService {
       AndroidNotificationSound? snd;
       if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
         if (settings.soundOption == NotificationSound.custom &&
-            settings.customSoundPath != null)
+            settings.customSoundPath != null) {
           snd =
               UriAndroidNotificationSound('file://${settings.customSoundPath}');
-        else if (settings.soundOption != NotificationSound.system)
+        } else if (settings.soundOption != NotificationSound.system) {
           snd = RawResourceAndroidNotificationSound(
               settings.soundOption.fileName);
+        }
       }
 
       Int64List? vib;
       if (mode == AlarmMode.vibrationOnly ||
-          mode == AlarmMode.soundAndVibration)
+          mode == AlarmMode.soundAndVibration) {
         vib = settings.vibrationPattern.patternInt64;
+      }
 
       await _plugin.show(
         9999,
@@ -208,15 +237,21 @@ class NotificationService {
   }
 
   static Future<void> requestPermissions() async {
-    if (!_isMobile) return;
+    if (!_isMobile) {
+      return;
+    }
     final audioStatus = await Permission.audio.request();
-    if (!audioStatus.isGranted) await Permission.storage.request();
+    if (!audioStatus.isGranted) {
+      await Permission.storage.request();
+    }
     await Permission.notification.request();
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     await android?.requestExactAlarmsPermission();
   }
 }
+
+// ── Storage ──────────────────────────────────────────────────────
 
 const _ss = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true));
@@ -255,13 +290,16 @@ class AppSettingsStorage {
     if (raw != null) {
       try {
         return AppSettings.fromJson(jsonDecode(raw));
-      } catch (_) {}
+      } catch (e) {
+        appLog('[Settings] 설정 파싱 실패, 기본값 사용: $e');
+      }
     }
     return const AppSettings();
   }
 
-  static Future<void> save(AppSettings s) async =>
-      _ss.write(key: _key, value: jsonEncode(s.toJson()));
+  static Future<void> save(AppSettings s) async {
+    await _ss.write(key: _key, value: jsonEncode(s.toJson()));
+  }
 }
 
 class EventStorage {
@@ -296,26 +334,42 @@ class EventStorage {
     49
   ]);
 
-  static Future<List<CalendarEvent>> loadAll() async {
+  // 💡 [최적화] 메모이제이션(캐시) 적용: 디스크 I/O를 최소화합니다.
+  static List<CalendarEvent>? _cachedEvents;
+
+  static Future<List<CalendarEvent>> loadAll({bool refresh = false}) async {
+    if (!refresh && _cachedEvents != null) {
+      return _cachedEvents!;
+    }
     final raw = await _ss.read(key: _key);
-    if (raw == null) return [];
+    if (raw == null) {
+      _cachedEvents = [];
+      return _cachedEvents!;
+    }
     try {
-      return await compute(decodeEventsFromJson, raw);
-    } catch (_) {
-      return [];
+      _cachedEvents = await compute(decodeEventsFromJson, raw);
+      return _cachedEvents!;
+    } catch (e) {
+      appLog('[EventStorage] 이벤트 로드 실패: $e');
+      _cachedEvents = [];
+      return _cachedEvents!;
     }
   }
 
   static Future<void> saveAll(List<CalendarEvent> events) async {
     final toSave = events.where((e) => !e.isRecurrenceInstance).toList();
+    _cachedEvents = toSave; // 캐시 즉시 동기화
     final jsonString = await compute(encodeEventsToJson, toSave);
     await _ss.write(key: _key, value: jsonString);
   }
 
+  static final _rng = math.Random.secure();
   static int generateId() =>
       ((DateTime.now().microsecondsSinceEpoch & 0x7FFFFFFF) ^
-          ((math.Random().nextInt(0xFFFF) << 15) & 0x7FFFFFFF));
+          ((_rng.nextInt(0xFFFF) << 15) & 0x7FFFFFFF));
 }
+
+// ── IcsService ───────────────────────────────────────────────────
 
 class IcsService {
   static String _escapeIcsText(String text) => text
@@ -330,7 +384,7 @@ class IcsService {
       final buf = StringBuffer();
       buf.writeln('BEGIN:VCALENDAR');
       buf.writeln('VERSION:2.0');
-      buf.writeln('PRODID:-//My Calendar App//v4.1.0//EN');
+      buf.writeln('PRODID:-//My Calendar App//v4.3.0//EN');
 
       String formatDt(DateTime d) =>
           '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
@@ -355,8 +409,7 @@ class IcsService {
           final freq = r.frequency.name.toUpperCase();
           var rrule = 'RRULE:FREQ=$freq;INTERVAL=${r.interval}';
           if (r.until != null) {
-            final u = r.until!;
-            rrule += ';UNTIL=${formatDt(u)}';
+            rrule += ';UNTIL=${formatDt(r.until!)}';
           }
           buf.writeln(rrule);
         }
@@ -377,7 +430,9 @@ class IcsService {
     try {
       await Permission.storage.request();
       final result = await FilePicker.platform.pickFiles(type: FileType.any);
-      if (result == null || result.files.single.path == null) return false;
+      if (result == null || result.files.single.path == null) {
+        return false;
+      }
 
       final content = await File(result.files.single.path!).readAsString();
       final imported = <CalendarEvent>[];
@@ -409,12 +464,13 @@ class IcsService {
           }
           inEvent = false;
         } else if (inEvent) {
-          if (line.startsWith('SUMMARY:'))
+          if (line.startsWith('SUMMARY:')) {
             summary = line.substring(8);
-          else if (line.startsWith('DTSTART'))
+          } else if (line.startsWith('DTSTART')) {
             dtStart = line.substring(line.indexOf(':') + 1);
-          else if (line.startsWith('DTEND'))
+          } else if (line.startsWith('DTEND')) {
             dtEnd = line.substring(line.indexOf(':') + 1);
+          }
         }
       }
 
@@ -425,7 +481,8 @@ class IcsService {
         return true;
       }
       return false;
-    } catch (_) {
+    } catch (e) {
+      appLog('[ICS] import 실패: $e');
       return false;
     }
   }
@@ -435,9 +492,10 @@ class IcsService {
 
   static DateTime? _parseDate(String v) {
     v = v.replaceAll('\r', '').replaceAll('Z', '');
-    if (v.length >= 8)
+    if (v.length >= 8) {
       return DateTime.tryParse(
           '${v.substring(0, 4)}-${v.substring(4, 6)}-${v.substring(6, 8)}');
+    }
     return null;
   }
 
