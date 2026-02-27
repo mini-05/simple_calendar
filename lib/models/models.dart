@@ -1,9 +1,8 @@
+// v4.1.0-fix1
+// claude_models.dart
+// lib\models\models.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
-// models/models.dart
-// 데이터 규격 정의 (Schema)
-// - CalendarEvent: 일정 데이터 구조 및 JSON 변환 + 계산 프로퍼티
-// - AppSettings: 테마, 알림 등 설정 값 정의
-// - RecurrenceRule: 반복 일정 로직 정의
+// 수정: ① DateTime.parse→_safeParse(크래시방지) ④ 매월반복 말일 overflow
 import 'dart:typed_data';
 
 // ── Enum 정의 ────────────────────────────────────────────────────
@@ -24,14 +23,10 @@ enum AlarmMode { silent, soundOnly, vibrationOnly, soundAndVibration }
 extension AlarmModeExt on AlarmMode {
   String get label {
     switch (this) {
-      case AlarmMode.silent:
-        return '무음';
-      case AlarmMode.soundOnly:
-        return '소리';
-      case AlarmMode.vibrationOnly:
-        return '진동';
-      case AlarmMode.soundAndVibration:
-        return '소리+진동';
+      case AlarmMode.silent:        return '무음';
+      case AlarmMode.soundOnly:     return '소리';
+      case AlarmMode.vibrationOnly: return '진동';
+      case AlarmMode.soundAndVibration: return '소리+진동';
     }
   }
 }
@@ -91,12 +86,15 @@ const int defaultEventColor = 0xFF2196F3;
 T _safeEnum<T>(List<T> values, int? raw, int fallback) =>
     values[(raw ?? fallback).clamp(0, values.length - 1)];
 
+/// [fix①] FormatException 크래시 방지: 손상된 날짜 문자열 → DateTime.now() fallback
+DateTime _safeParse(String? s) => DateTime.tryParse(s ?? '') ?? DateTime.now();
+
 // ── RecurrenceRule ───────────────────────────────────────────────
 
 class RecurrenceRule {
   final RecurrenceFrequency frequency;
-  final int interval; // 반복 간격 (기본 1)
-  final DateTime? until; // 반복 종료일 (null = 무한)
+  final int interval;
+  final DateTime? until;
 
   const RecurrenceRule({
     required this.frequency,
@@ -118,7 +116,6 @@ class RecurrenceRule {
             j['until'] != null ? DateTime.tryParse(j['until'] as String) : null,
       );
 
-  /// 주어진 시작일 기준으로 다음 N개 반복 날짜 생성
   List<DateTime> expand(DateTime start, {int limit = 365}) {
     final result = <DateTime>[];
     var cur = start;
@@ -130,6 +127,9 @@ class RecurrenceRule {
     return result;
   }
 
+  /// [fix④] 매월/매년 반복 말일 overflow 수정
+  /// DateTime(y, m+1, 0) = Dart의 "m월 마지막 날" 관용구
+  /// 예) 1월 31일 매월반복 → 2월은 28(29)일로 clamp, 4월은 30일로 clamp
   DateTime _advance(DateTime d) {
     switch (frequency) {
       case RecurrenceFrequency.daily:
@@ -137,9 +137,12 @@ class RecurrenceRule {
       case RecurrenceFrequency.weekly:
         return d.add(Duration(days: 7 * interval));
       case RecurrenceFrequency.monthly:
-        return DateTime(d.year, d.month + interval, d.day);
+        final lastDay = DateTime(d.year, d.month + interval + 1, 0).day;
+        return DateTime(d.year, d.month + interval, d.day.clamp(1, lastDay));
       case RecurrenceFrequency.yearly:
-        return DateTime(d.year + interval, d.month, d.day);
+        // 윤년 2월29일 → 평년엔 2월28일로 clamp
+        final lastDay = DateTime(d.year + interval, d.month + 1, 0).day;
+        return DateTime(d.year + interval, d.month, d.day.clamp(1, lastDay));
     }
   }
 }
@@ -173,7 +176,6 @@ class AppSettings {
     this.calendarNavMode = CalendarNavMode.arrow,
   });
 
-  /// 현재 소리/진동 설정을 종합한 실효 AlarmMode
   AlarmMode get effectiveMode {
     if (globalSilentMode) return AlarmMode.silent;
     if (soundEnabled && vibrationEnabled) return AlarmMode.soundAndVibration;
@@ -249,10 +251,10 @@ class AppSettings {
 class CalendarEvent {
   final int id;
   final String title;
-  final String date; // 'YYYY-MM-DD' (시작일)
-  final String? endDate; // 'YYYY-MM-DD' (종료일, 단일일이면 null)
-  final String? startTime; // 'HH:mm'
-  final String? endTime; // 'HH:mm'
+  final String date;
+  final String? endDate;
+  final String? startTime;
+  final String? endTime;
   final int? colorValue;
   final bool isAllDay;
   final bool isAlarmOn;
@@ -262,12 +264,8 @@ class CalendarEvent {
   final VibrationPattern vibrationPattern;
   final String? customSoundPath;
   final RecurrenceRule? recurrenceRule;
-
-  // 반복 인스턴스 전용 필드 (DB 저장 안 함)
-  final int? parentId; // 원본 이벤트 id
+  final int? parentId;
   final bool isRecurrenceInstance;
-
-  // 미리 계산된 DateTime (생성자에서 파싱)
   final DateTime startDt;
   final DateTime endDt;
 
@@ -289,22 +287,16 @@ class CalendarEvent {
     this.recurrenceRule,
     this.parentId,
     this.isRecurrenceInstance = false,
-  })  : startDt = DateTime.parse(date),
-        endDt =
-            endDate != null ? DateTime.parse(endDate) : DateTime.parse(date);
+  })  : startDt = _safeParse(date),         // [fix①]
+        endDt   = _safeParse(endDate ?? date); // [fix①]
 
-  // ── 계산 프로퍼티 (UI 작성 편의) ─────────────────────────────
-
-  /// 공휴일 여부 (id < 0)
   bool get isHoliday => id < 0;
 
-  /// 여러 날에 걸친 일정 여부
   bool get isMultiDay =>
       startDt.year != endDt.year ||
       startDt.month != endDt.month ||
       startDt.day != endDt.day;
 
-  /// 오늘 일정 여부
   bool get isToday {
     final now = DateTime.now();
     return startDt.year == now.year &&
@@ -312,7 +304,6 @@ class CalendarEvent {
         startDt.day == now.day;
   }
 
-  /// 알림 발생 시각 (null = 알림 없음)
   DateTime? get alarmDateTime {
     if (alarmMinutes == AlarmMinutes.none) return null;
     if (isAllDay) {
@@ -321,12 +312,14 @@ class CalendarEvent {
     }
     if (startTime == null) return null;
     final parts = startTime!.split(':');
-    return DateTime(startDt.year, startDt.month, startDt.day,
-            int.parse(parts[0]), int.parse(parts[1]))
+    // [fix①] 잘못된 시간 포맷 방어
+    if (parts.length != 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    return DateTime(startDt.year, startDt.month, startDt.day, h, m)
         .subtract(Duration(minutes: alarmMinutes.minutes));
   }
-
-  // ── 직렬화 ───────────────────────────────────────────────────
 
   Map<String, dynamic> toJson() => {
         'id': id,

@@ -1,8 +1,6 @@
-// v4.1.0
-// calendar_screen.dart
+// v4.2.2
+// gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
-// ignore_for_file: curly_braces_in_flow_control_structures
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +26,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   late final PageController _pageCtrl;
 
   bool _isPanelOpen = false;
+  double _panelHeight = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _panelHeight = MediaQuery.of(context).size.height * 0.65;
+  }
 
   static int _monthToPage(DateTime d) => (d.year - 2020) * 12 + (d.month - 1);
   static DateTime _pageToMonth(int page) =>
@@ -49,7 +54,81 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   void _onDaySelected(DateTime sel, DateTime foc, CalendarNotifier notifier) {
     notifier.selectDay(sel, foc);
-    setState(() => _isPanelOpen = true);
+    setState(() {
+      _isPanelOpen = true;
+    });
+  }
+
+  void _showMonthPicker(
+      BuildContext context, CalendarState st, CalendarNotifier notifier) {
+    DateTime tempDate = st.focusedDay;
+    final th = st.settings.currentTheme.themeData;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: th.bottomSheetBg ??
+          (th.isDark ? const Color(0xFF2A2640) : Colors.white),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: SizedBox(
+          height: 300,
+          child: Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                      },
+                      child: Text('취소',
+                          style: TextStyle(
+                              color:
+                                  th.isDark ? Colors.white54 : Colors.black54,
+                              fontSize: 16)),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        notifier.jumpToDate(tempDate);
+                        setState(() {
+                          _isPanelOpen = false;
+                        });
+                      },
+                      child: Text('완료',
+                          style: TextStyle(
+                              color: th.primaryAccent,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CupertinoTheme(
+                  data: CupertinoThemeData(
+                    brightness: th.isDark ? Brightness.dark : Brightness.light,
+                  ),
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.monthYear,
+                    initialDateTime: st.focusedDay,
+                    minimumDate: DateTime(2020, 1, 1),
+                    maximumDate: DateTime(2030, 12, 31),
+                    onDateTimeChanged: (DateTime newDate) {
+                      tempDate = newDate;
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -57,7 +136,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final st = ref.watch(calendarProvider);
     final notifier = ref.read(calendarProvider.notifier);
     final th = st.settings.currentTheme.themeData;
-    final panelHeight = MediaQuery.of(context).size.height * 0.65;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -65,7 +143,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       drawer: _buildDrawer(st, notifier, th),
       appBar: _buildAppBar(st, notifier, th),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showEventEditor(context, st, notifier),
+        onPressed: () {
+          _showEventEditor(context, st, notifier);
+        },
         backgroundColor: th.primaryAccent,
         foregroundColor: Colors.white,
         elevation: _isPanelOpen ? 8 : 4,
@@ -78,10 +158,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 Positioned.fill(
                   child: GestureDetector(
                     onVerticalDragEnd: (details) {
-                      if (details.primaryVelocity! < -300)
-                        setState(() => _isPanelOpen = true);
-                      if (details.primaryVelocity! > 300)
-                        setState(() => _isPanelOpen = false);
+                      final v = details.primaryVelocity ?? 0;
+                      if (v < -300) {
+                        setState(() {
+                          _isPanelOpen = true;
+                        });
+                      }
+                      if (v > 300) {
+                        setState(() {
+                          _isPanelOpen = false;
+                        });
+                      }
                     },
                     child: Container(
                       color: Colors.transparent,
@@ -104,10 +191,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 350),
                   curve: Curves.easeOutCubic,
-                  bottom: _isPanelOpen ? 0 : -panelHeight,
+                  bottom: _isPanelOpen ? 0 : -_panelHeight,
                   left: 0,
                   right: 0,
-                  height: panelHeight,
+                  height: _panelHeight,
                   child: Container(
                     decoration: BoxDecoration(
                       color: th.bottomSheetBg ??
@@ -125,8 +212,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       children: [
                         GestureDetector(
                           onVerticalDragEnd: (details) {
-                            if (details.primaryVelocity! > 200)
-                              setState(() => _isPanelOpen = false);
+                            if ((details.primaryVelocity ?? 0) > 200) {
+                              setState(() {
+                                _isPanelOpen = false;
+                              });
+                            }
                           },
                           child: Container(
                             width: double.infinity,
@@ -155,7 +245,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
-  // 💡 드로어 UI 수정: '오늘로 이동' 제거, 직관적인 3개 탭 구성 (테마, 백업/복원, 설정)
   Widget _buildDrawer(
       CalendarState st, CalendarNotifier notifier, CalendarTheme th) {
     final textStyle = TextStyle(
@@ -199,7 +288,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  // 1. 테마 탭
                   ListTile(
                     leading: Icon(Icons.palette_outlined, color: iconColor),
                     title: Text('테마', style: textStyle),
@@ -209,15 +297,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           context: context,
                           th: th,
                           settings: st.settings,
-                          onSelect: (t) async => await notifier.updateSettings(
-                              st.settings.copyWith(currentTheme: t)));
+                          onSelect: (t) async {
+                            await notifier.updateSettings(
+                                st.settings.copyWith(currentTheme: t));
+                          });
                     },
                   ),
                   Divider(
                       color: th.isDark ? Colors.white12 : Colors.black12,
                       height: 1),
-
-                  // 2. 백업/복원 탭 (펼침 메뉴)
                   Theme(
                     data: Theme.of(context)
                         .copyWith(dividerColor: Colors.transparent),
@@ -250,7 +338,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           onTap: () async {
                             Navigator.pop(context);
                             final ok = await notifier.importIcs();
-                            if (!mounted) return;
+                            if (!mounted) {
+                              return;
+                            }
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text(ok
                                   ? 'ICS 데이터가 성공적으로 병합되었습니다!'
@@ -266,8 +356,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   Divider(
                       color: th.isDark ? Colors.white12 : Colors.black12,
                       height: 1),
-
-                  // 3. 설정 탭
                   ListTile(
                     leading: Icon(Icons.settings_outlined, color: iconColor),
                     title: Text('설정', style: textStyle),
@@ -308,7 +396,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       elevation: 0,
       leading: IconButton(
         icon: Icon(Icons.menu_rounded, color: th.appBarText, size: 28),
-        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        onPressed: () {
+          _scaffoldKey.currentState?.openDrawer();
+        },
       ),
       actions: [
         IconButton(
@@ -320,7 +410,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     st.masterEvents.where((e) => !e.isHoliday).toList(), th));
             if (e != null) {
               notifier.jumpToDate(e.startDt);
-              setState(() => _isPanelOpen = true);
+              setState(() {
+                _isPanelOpen = true;
+              });
             }
           },
         ),
@@ -329,7 +421,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           child: GestureDetector(
             onTap: () {
               notifier.jumpToDate(DateTime.now());
-              setState(() => _isPanelOpen = false);
+              setState(() {
+                _isPanelOpen = false;
+              });
             },
             child: Center(
               child: Container(
@@ -378,61 +472,76 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                '${st.focusedDay.year}년 ${st.focusedDay.month}월',
-                style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w300,
-                    letterSpacing: -0.3,
-                    color: th.appBarText),
+              child: GestureDetector(
+                onTap: () {
+                  _showMonthPicker(context, st, notifier);
+                },
+                child: Text(
+                  '${st.focusedDay.year}년 ${st.focusedDay.month}월',
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w300,
+                      letterSpacing: -0.3,
+                      color: th.appBarText),
+                ),
               ),
             ),
           );
 
     if (th.hasRoundedCard) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      return Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          header,
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: Container(
+                  decoration: BoxDecoration(
+                      color: th.calendarBg,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4))
+                      ]),
+                  child: calWidget),
+            ),
+          ),
+        ]),
+      );
+    }
+    return Expanded(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         header,
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+        Expanded(
           child: Container(
               decoration: BoxDecoration(
                   color: th.calendarBg,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(28),
+                      bottomRight: Radius.circular(28)),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 16,
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 12,
                         offset: const Offset(0, 4))
                   ]),
               child: calWidget),
         ),
-      ]);
-    }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      header,
-      Container(
-          decoration: BoxDecoration(
-              color: th.calendarBg,
-              borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28)),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4))
-              ]),
-          child: calWidget),
-    ]);
+      ]),
+    );
   }
 
   Widget _buildArrowCalendar(
       CalendarState st, CalendarNotifier notifier, CalendarTheme th) {
     final hc = th.appBarText;
     const dows = ['일', '월', '화', '수', '목', '금', '토'];
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: TableCalendar<CalendarEvent>(
+        shouldFillViewport: true,
         firstDay: DateTime.utc(2020, 1, 1),
         lastDay: DateTime.utc(2030, 12, 31),
         focusedDay: st.focusedDay,
@@ -440,12 +549,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         onDaySelected: (sel, foc) => _onDaySelected(sel, foc, notifier),
         onPageChanged: (focused) => notifier.onArrowPageChanged(focused),
         eventLoader: (d) => st.eventsByDate[DateFormatter.dateKey(d)] ?? [],
-        rowHeight: st.cachedArrowRowHeight,
         calendarBuilders: CalendarBuilders(
           dowBuilder: (_, day) {
             Color c = hc.withValues(alpha: 0.6);
-            if (day.weekday == DateTime.sunday) c = Colors.redAccent;
-            if (day.weekday == DateTime.saturday) c = Colors.blueAccent;
+            if (day.weekday == DateTime.sunday) {
+              c = Colors.redAccent;
+            }
+            if (day.weekday == DateTime.saturday) {
+              c = Colors.blueAccent;
+            }
             return Center(
                 child: Text(dows[day.weekday % 7],
                     style: TextStyle(
@@ -460,14 +572,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         headerStyle: HeaderStyle(
             formatButtonVisible: false,
             titleCentered: true,
-            titleTextFormatter: (d, _) =>
-                (th.type == AppTheme.apple || th.type == AppTheme.naver)
-                    ? '${d.year}. ${d.month}'
-                    : '${d.year}년 ${d.month}월',
+            // 💡 [완벽 통일] 어떤 테마이든 '2026년 2월' 포맷으로만 출력되도록 고정
+            titleTextFormatter: (d, _) => '${d.year}년 ${d.month}월',
             titleTextStyle:
                 TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: hc),
             leftChevronIcon: Icon(Icons.chevron_left, color: hc),
             rightChevronIcon: Icon(Icons.chevron_right, color: hc)),
+        onHeaderTapped: (date) {
+          _showMonthPicker(context, st, notifier);
+        },
       ),
     );
   }
@@ -480,14 +593,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ? Axis.vertical
         : Axis.horizontal;
 
-    return Column(mainAxisSize: MainAxisSize.min, children: [
+    return Column(children: [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
             children: List.generate(7, (i) {
           Color c = hc.withValues(alpha: 0.6);
-          if (i == 0) c = Colors.redAccent;
-          if (i == 6) c = Colors.blueAccent;
+          if (i == 0) {
+            c = Colors.redAccent;
+          }
+          if (i == 6) {
+            c = Colors.blueAccent;
+          }
           return Expanded(
               child: Center(
                   child: Text(dows[i],
@@ -497,47 +614,19 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           fontWeight: FontWeight.bold))));
         })),
       ),
-      SizedBox(
-        height: _calcSwipeHeight(st.focusedDay, st, th),
+      Expanded(
         child: PageView.builder(
           scrollDirection: axis,
           controller: _pageCtrl,
           pageSnapping: true,
-          onPageChanged: (page) =>
-              notifier.onSwipePageChanged(_pageToMonth(page)),
+          onPageChanged: (page) {
+            notifier.onSwipePageChanged(_pageToMonth(page));
+          },
           itemBuilder: (_, page) =>
               _buildMonthGrid(_pageToMonth(page), st, notifier, th),
         ),
       ),
     ]);
-  }
-
-  double _calcSwipeHeight(DateTime month, CalendarState st, CalendarTheme th) {
-    final first = DateTime(month.year, month.month, 1);
-    final last = DateTime(month.year, month.month + 1, 0);
-    final offset = first.weekday % 7;
-    final weeks = ((offset + last.day) / 7).ceil();
-    if (th.showTextInside) {
-      double total = 0;
-      for (int w = 0; w < weeks; w++) {
-        total +=
-            _calcRowHeight(first.subtract(Duration(days: offset - w * 7)), st);
-      }
-      return total;
-    }
-    return weeks * 56.0;
-  }
-
-  double _calcRowHeight(DateTime weekStart, CalendarState st) {
-    int maxCount = 0;
-    for (int i = 0; i < 7; i++) {
-      final cnt = (st.eventsByDate[
-                  DateFormatter.dateKey(weekStart.add(Duration(days: i)))] ??
-              [])
-          .length;
-      if (cnt > maxCount) maxCount = cnt;
-    }
-    return math.max(22 + (maxCount > 0 ? maxCount * 20.0 : 0) + 8, 52);
   }
 
   Widget _buildMonthGrid(DateTime month, CalendarState st,
@@ -549,12 +638,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final today = DateTime.now();
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: List.generate(weeks, (w) {
-        final weekStart = first.subtract(Duration(days: offset - w * 7));
-        final rowH = th.showTextInside ? _calcRowHeight(weekStart, st) : 56.0;
-        return SizedBox(
-          height: rowH,
+        return Expanded(
           child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: List.generate(7, (d) {
@@ -562,12 +647,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     first.subtract(Duration(days: offset - (w * 7 + d)));
                 return Expanded(
                   child: GestureDetector(
-                    onTap: () => _onDaySelected(date, month, notifier),
+                    onTap: () {
+                      _onDaySelected(date, month, notifier);
+                    },
                     child: _tile(date, st, th,
                         isToday: isSameDay(date, today),
                         isSelected: isSameDay(date, st.selectedDay),
-                        isOutside: date.month != month.month,
-                        forcedHeight: rowH),
+                        isOutside: date.month != month.month),
                   ),
                 );
               })),
@@ -579,8 +665,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Widget _tile(DateTime day, CalendarState st, CalendarTheme th,
           {bool isToday = false,
           bool isSelected = false,
-          bool isOutside = false,
-          double? forcedHeight}) =>
+          bool isOutside = false}) =>
       CalendarTile(
           day: day,
           th: th,
@@ -590,8 +675,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           isSelected: isSelected,
           isOutside: isOutside,
           isHoliday: st.holidayDates.contains(DateFormatter.dateKey(day)),
-          showLunar: st.settings.showLunarCalendar,
-          forcedHeight: forcedHeight);
+          showLunar: st.settings.showLunarCalendar);
 
   Widget _buildSectionLabel(BuildContext context, CalendarState st,
       CalendarNotifier notifier, CalendarTheme th) {
@@ -617,8 +701,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             child: CupertinoSwitch(
                 activeTrackColor: th.primaryAccent,
                 value: st.settings.globalSilentMode,
-                onChanged: (val) async => await notifier.updateSettings(
-                    st.settings.copyWith(globalSilentMode: val)))),
+                onChanged: (val) async {
+                  await notifier.updateSettings(
+                      st.settings.copyWith(globalSilentMode: val));
+                })),
       ]),
     );
   }
@@ -641,15 +727,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         final event = st.selectedEvents[i];
         return GestureDetector(
           onTap: () {
-            if (!event.isHoliday)
+            if (!event.isHoliday) {
               _showActionSheet(context, event, st, notifier, th);
+            }
           },
           child: th.buildEventListItem(
               context: context,
               event: event,
               dateInfo: DateFormatter.makeTimeString(event),
               isGlobalSilent: st.settings.globalSilentMode,
-              onToggleAlarm: () => notifier.toggleAlarm(event),
+              onToggleAlarm: () {
+                notifier.toggleAlarm(event);
+              },
               formatHHmm: DateFormatter.formatHHmm),
         );
       },
@@ -666,9 +755,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         currentEventCount: st.masterEvents.length,
         existingEvent: existingEvent,
         selectedDay: st.selectedDay ?? st.focusedDay,
-        onSave: (e) => existingEvent == null
-            ? notifier.addEvent(e)
-            : notifier.updateEvent(e));
+        onSave: (e) async {
+          if (existingEvent == null) {
+            await notifier.addEvent(e);
+          } else {
+            await notifier.updateEvent(e);
+          }
+        });
   }
 
   void _showActionSheet(BuildContext context, CalendarEvent event,
@@ -738,7 +831,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           initial: st.settings,
           isDark: th.isDark,
           accent: th.primaryAccent,
-          onChanged: (updated) => notifier.updateSettings(updated)),
+          onChanged: (updated) {
+            notifier.updateSettings(updated);
+          }),
     );
   }
 }
@@ -809,12 +904,16 @@ class _EventSearchDelegate extends SearchDelegate<CalendarEvent?> {
   List<Widget>? buildActions(BuildContext context) => [
         IconButton(
             icon: Icon(Icons.clear, color: th.appBarText),
-            onPressed: () => query = '')
+            onPressed: () {
+              query = '';
+            })
       ];
   @override
   Widget? buildLeading(BuildContext context) => IconButton(
       icon: Icon(Icons.arrow_back, color: th.appBarText),
-      onPressed: () => close(context, null));
+      onPressed: () {
+        close(context, null);
+      });
   @override
   Widget buildResults(BuildContext context) => _buildList(context);
   @override
@@ -822,23 +921,25 @@ class _EventSearchDelegate extends SearchDelegate<CalendarEvent?> {
 
   Widget _buildList(BuildContext context) {
     final clean = query.replaceAll(' ', '').toLowerCase();
-    if (clean.isEmpty)
+    if (clean.isEmpty) {
       return Center(
           child: Text('검색어를 입력하세요.',
               style: TextStyle(
                   color: th.sectionLabelText.withValues(alpha: 0.5),
                   fontSize: 16)));
+    }
     final chosung = DateFormatter.getChosung(clean);
     final results = allEvents.where((e) {
       final t = e.title.replaceAll(' ', '').toLowerCase();
       return t.contains(clean) || DateFormatter.getChosung(t).contains(chosung);
     }).toList();
-    if (results.isEmpty)
+    if (results.isEmpty) {
       return Center(
           child: Text('검색 결과가 없습니다.',
               style: TextStyle(
                   color: th.sectionLabelText.withValues(alpha: 0.5),
                   fontSize: 16)));
+    }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: results.length,
@@ -857,7 +958,9 @@ class _EventSearchDelegate extends SearchDelegate<CalendarEvent?> {
                 style: TextStyle(
                     color: th.eventTitleText, fontWeight: FontWeight.bold)),
             subtitle: Text(e.date, style: TextStyle(color: th.eventSubText)),
-            onTap: () => close(context, e));
+            onTap: () {
+              close(context, e);
+            });
       },
     );
   }
@@ -886,7 +989,9 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
   }
 
   void _update(AppSettings next) {
-    setState(() => _s = next);
+    setState(() {
+      _s = next;
+    });
     widget.onChanged(next);
   }
 
@@ -922,7 +1027,9 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                   style: TextStyle(
                       fontSize: 20, fontWeight: FontWeight.bold, color: _text)),
               TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
                   child: Text('완료',
                       style: TextStyle(
                           color: widget.accent,
@@ -936,13 +1043,17 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                 label: '음력 표시 (일요일)',
                 subtitle: '매주 일요일 양력 날짜 옆에 음력을 표시합니다',
                 value: _s.showLunarCalendar,
-                onChanged: (v) => _update(_s.copyWith(showLunarCalendar: v))),
+                onChanged: (v) {
+                  _update(_s.copyWith(showLunarCalendar: v));
+                }),
             _switchTile(
                 icon: Icons.flag_outlined,
                 label: '공휴일 표시',
                 subtitle: '한국의 주요 공휴일을 표시합니다',
                 value: _s.showHolidays,
-                onChanged: (v) => _update(_s.copyWith(showHolidays: v))),
+                onChanged: (v) {
+                  _update(_s.copyWith(showHolidays: v));
+                }),
             const SizedBox(height: 12),
             Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -971,8 +1082,6 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                             ]))
                       ]),
                       const SizedBox(height: 12),
-
-                      // 💡 상/하 스와이프 모드 주석 처리 및 비활성화 적용
                       Row(
                           children: [
                         CalendarNavMode.arrow,
@@ -982,8 +1091,9 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                         final isLast = mode == CalendarNavMode.swipeHorizontal;
                         return Expanded(
                             child: GestureDetector(
-                          onTap: () =>
-                              _update(_s.copyWith(calendarNavMode: mode)),
+                          onTap: () {
+                            _update(_s.copyWith(calendarNavMode: mode));
+                          },
                           child: Container(
                             margin: EdgeInsets.only(right: isLast ? 0 : 8),
                             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1000,12 +1110,23 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                                             : Colors.grey.shade300),
                                     width: isSel ? 2 : 1)),
                             child: Column(children: [
-                              Icon(
-                                  mode == CalendarNavMode.arrow
-                                      ? Icons.chevron_right
-                                      : Icons.swap_horiz,
-                                  color: isSel ? widget.accent : _sub,
-                                  size: 22),
+                              mode == CalendarNavMode.arrow
+                                  ? Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.chevron_left,
+                                            color: isSel ? widget.accent : _sub,
+                                            size: 22),
+                                        Icon(Icons.chevron_right,
+                                            color: isSel ? widget.accent : _sub,
+                                            size: 22),
+                                      ],
+                                    )
+                                  : Icon(Icons.swap_horiz,
+                                      color: isSel ? widget.accent : _sub,
+                                      size: 22),
                               const SizedBox(height: 4),
                               Text(mode.label,
                                   style: TextStyle(
@@ -1026,7 +1147,9 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                 label: '알림 사용',
                 subtitle: '모든 일정 알림을 켜거나 끕니다',
                 value: _s.masterEnabled,
-                onChanged: (v) => _update(_s.copyWith(masterEnabled: v))),
+                onChanged: (v) {
+                  _update(_s.copyWith(masterEnabled: v));
+                }),
             if (_s.masterEnabled) ...[
               const SizedBox(height: 16),
               _sectionTitle('새 일정 추가 시 알람 소리/진동 기본값'),
@@ -1038,7 +1161,9 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                   disabled: _s.globalSilentMode,
                   onChanged: _s.globalSilentMode
                       ? null
-                      : (v) => _update(_s.copyWith(soundEnabled: v))),
+                      : (v) {
+                          _update(_s.copyWith(soundEnabled: v));
+                        }),
               _switchTile(
                   icon: Icons.vibration_outlined,
                   label: '진동 허용',
@@ -1047,13 +1172,17 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                   disabled: _s.globalSilentMode,
                   onChanged: _s.globalSilentMode
                       ? null
-                      : (v) => _update(_s.copyWith(vibrationEnabled: v))),
+                      : (v) {
+                          _update(_s.copyWith(vibrationEnabled: v));
+                        }),
               _switchTile(
                   icon: Icons.volume_off_outlined,
                   label: '무음모드',
                   subtitle: '켜면 모든 소리·진동 알림이 무음으로 차단됨',
                   value: _s.globalSilentMode,
-                  onChanged: (v) => _update(_s.copyWith(globalSilentMode: v))),
+                  onChanged: (v) {
+                    _update(_s.copyWith(globalSilentMode: v));
+                  }),
               if (!_s.globalSilentMode && _s.soundEnabled) ...[
                 const SizedBox(height: 16),
                 _sectionTitle('기본 소리 설정'),
@@ -1076,8 +1205,10 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14))),
-                      onPressed: () => NotificationService.showTestNotification(
-                          _s, _s.effectiveMode))),
+                      onPressed: () {
+                        NotificationService.showTestNotification(
+                            _s, _s.effectiveMode);
+                      })),
             ],
             const SizedBox(height: 32),
           ],
@@ -1090,13 +1221,15 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
     if (s == NotificationSound.custom) {
       final isSel = _s.soundOption == NotificationSound.custom;
       return GestureDetector(
-        onTap: () =>
-            FilePicker.platform.pickFiles(type: FileType.audio).then((r) {
-          if (r != null)
-            _update(_s.copyWith(
-                soundOption: NotificationSound.custom,
-                customSoundPath: r.files.single.path));
-        }),
+        onTap: () {
+          FilePicker.platform.pickFiles(type: FileType.audio).then((r) {
+            if (r != null) {
+              _update(_s.copyWith(
+                  soundOption: NotificationSound.custom,
+                  customSoundPath: r.files.single.path));
+            }
+          });
+        },
         child: _selectableTile(
             icon: Icons.library_music_outlined,
             isSel: isSel,
@@ -1105,7 +1238,9 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
       );
     }
     return GestureDetector(
-        onTap: () => _update(_s.copyWith(soundOption: s)),
+        onTap: () {
+          _update(_s.copyWith(soundOption: s));
+        },
         child: _selectableTile(
             icon: Icons.music_note,
             isSel: _s.soundOption == s,
@@ -1113,11 +1248,14 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
   }
 
   Widget _vibrationTile(VibrationPattern p) => GestureDetector(
-      onTap: () => _update(_s.copyWith(vibrationPattern: p)),
+      onTap: () {
+        _update(_s.copyWith(vibrationPattern: p));
+      },
       child: _selectableTile(
           icon: Icons.vibration,
           isSel: _s.vibrationPattern == p,
           label: p.label));
+
   Widget _selectableTile(
           {required IconData icon,
           required bool isSel,
@@ -1152,6 +1290,7 @@ class _AppSettingsSheetState extends State<_AppSettingsSheet> {
                 ])),
             if (isSel) Icon(Icons.check_circle, color: widget.accent, size: 20)
           ]));
+
   Widget _sectionTitle(String t) => Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Text(t,

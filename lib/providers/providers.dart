@@ -1,7 +1,8 @@
-// v4.1.0
-// providers.dart
-// lib/providers/providers.dart
+// v4.1.0-fix1
+// claude_providers.dart
+// lib\providers\providers.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
+// 수정: ⑥ updateSettings — showHolidays/showTextInside 변경 시에만 리빌드
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
@@ -139,10 +140,9 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
         if (d.isAfter(max)) break;
         if (d.isBefore(min)) continue;
         final dur = e.endDt.difference(e.startDt);
-        final instStart = d;
         final instEnd = d.add(dur);
         result.add(e.copyWith(
-          date: _dateKey(instStart),
+          date: _dateKey(d),
           endDate: _dateKey(instEnd),
           parentId: e.id,
           isRecurrenceInstance: true,
@@ -268,10 +268,21 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     await updateSettings(updated);
   }
 
+  /// [fix⑥] 불필요한 _rebuildIndex 호출 방지
+  /// 리빌드가 필요한 경우만 실행:
+  ///   - showHolidays 변경: 공휴일 표시 On/Off → eventsByDate 재구성 필요
+  ///   - showTextInside 변경 (테마 전환): rowHeight 재계산 필요
+  /// 그 외(무음모드, 알람ON/OFF, 소리/진동 등)는 state 업데이트만으로 충분
   Future<void> updateSettings(AppSettings settings) async {
     await AppSettingsStorage.save(settings);
+    final prev = state.settings;
     state = state.copyWith(settings: settings);
-    _rebuildIndex(state.masterEvents);
+
+    final needsRebuild = prev.showHolidays != settings.showHolidays ||
+        prev.currentTheme.themeData.showTextInside !=
+            settings.currentTheme.themeData.showTextInside;
+
+    if (needsRebuild) _rebuildIndex(state.masterEvents);
     await _rescheduleAllAlarms();
   }
 

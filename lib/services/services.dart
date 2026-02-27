@@ -1,7 +1,8 @@
-// v4.1.0
-// services.dart
-// lib/services/services.dart
+// v4.1.0-fix1
+// claude_services.dart
+// lib\services\services.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
+// 수정: ③ AppSettingsStorage.save await 누락, catch 로그, generateId→Random.secure()
 import 'dart:io' show File, Platform;
 import 'dart:convert';
 import 'dart:math' as math;
@@ -29,6 +30,8 @@ List<CalendarEvent> decodeEventsFromJson(String raw) =>
         .map((e) => CalendarEvent.fromJson(e as Map<String, dynamic>))
         .toList();
 
+// ── NotificationService ──────────────────────────────────────────
+
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool get _isMobile =>
@@ -41,7 +44,8 @@ class NotificationService {
       final loc =
           tz.getLocation((await FlutterTimezone.getLocalTimezone()).toString());
       tz.setLocalLocation(loc);
-    } catch (_) {
+    } catch (e) {
+      appLog('[NotifSvc] 시간대 설정 실패, Asia/Seoul 사용: $e');
       tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
     }
     await _plugin.initialize(const InitializationSettings(
@@ -218,36 +222,15 @@ class NotificationService {
   }
 }
 
+// ── Storage ──────────────────────────────────────────────────────
+
 const _ss = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true));
 
 class AppSettingsStorage {
   static final String _key = String.fromCharCodes([
-    97,
-    112,
-    112,
-    95,
-    115,
-    101,
-    116,
-    116,
-    105,
-    110,
-    103,
-    115,
-    95,
-    101,
-    110,
-    99,
-    114,
-    121,
-    112,
-    116,
-    101,
-    100,
-    95,
-    118,
-    49
+    97, 112, 112, 95, 115, 101, 116, 116, 105, 110, 103, 115,
+    95, 101, 110, 99, 114, 121, 112, 116, 101, 100, 95, 118, 49
   ]);
 
   static Future<AppSettings> load() async {
@@ -255,45 +238,25 @@ class AppSettingsStorage {
     if (raw != null) {
       try {
         return AppSettings.fromJson(jsonDecode(raw));
-      } catch (_) {}
+      } catch (e) {
+        // [fix③] catch 로그 추가: 설정 손상 시 기본값 복구 경로 추적 가능
+        appLog('[Settings] 설정 파싱 실패, 기본값 사용: $e');
+      }
     }
     return const AppSettings();
   }
 
+  /// [fix③] async => 에서 await 누락 수정
+  /// 기존: _ss.write(...) — Future를 반환하지만 await 없이 버려짐
+  /// 수정: await _ss.write(...)
   static Future<void> save(AppSettings s) async =>
-      _ss.write(key: _key, value: jsonEncode(s.toJson()));
+      await _ss.write(key: _key, value: jsonEncode(s.toJson()));
 }
 
 class EventStorage {
   static final String _key = String.fromCharCodes([
-    99,
-    97,
-    108,
-    101,
-    110,
-    100,
-    97,
-    114,
-    95,
-    101,
-    118,
-    101,
-    110,
-    116,
-    115,
-    95,
-    101,
-    110,
-    99,
-    114,
-    121,
-    112,
-    116,
-    101,
-    100,
-    95,
-    118,
-    49
+    99, 97, 108, 101, 110, 100, 97, 114, 95, 101, 118, 101, 110, 116, 115,
+    95, 101, 110, 99, 114, 121, 112, 116, 101, 100, 95, 118, 49
   ]);
 
   static Future<List<CalendarEvent>> loadAll() async {
@@ -301,7 +264,9 @@ class EventStorage {
     if (raw == null) return [];
     try {
       return await compute(decodeEventsFromJson, raw);
-    } catch (_) {
+    } catch (e) {
+      // [fix③] 로드 실패 시 조용히 삭제하지 않고 로그 남김
+      appLog('[EventStorage] 이벤트 로드 실패: $e');
       return [];
     }
   }
@@ -312,10 +277,15 @@ class EventStorage {
     await _ss.write(key: _key, value: jsonString);
   }
 
+  /// [fix③+⑤] Random() → Random.secure(): 암호학적으로 안전한 난수 생성
+  /// 동일 microsecond XOR 충돌 방지: secure random은 OS 엔트로피 풀 사용
+  static final _rng = math.Random.secure();
   static int generateId() =>
       ((DateTime.now().microsecondsSinceEpoch & 0x7FFFFFFF) ^
-          ((math.Random().nextInt(0xFFFF) << 15) & 0x7FFFFFFF));
+          ((_rng.nextInt(0xFFFF) << 15) & 0x7FFFFFFF));
 }
+
+// ── IcsService ───────────────────────────────────────────────────
 
 class IcsService {
   static String _escapeIcsText(String text) => text
@@ -354,10 +324,7 @@ class IcsService {
           final r = e.recurrenceRule!;
           final freq = r.frequency.name.toUpperCase();
           var rrule = 'RRULE:FREQ=$freq;INTERVAL=${r.interval}';
-          if (r.until != null) {
-            final u = r.until!;
-            rrule += ';UNTIL=${formatDt(u)}';
-          }
+          if (r.until != null) rrule += ';UNTIL=${formatDt(r.until!)}';
           buf.writeln(rrule);
         }
         buf.writeln('END:VEVENT');
@@ -425,7 +392,8 @@ class IcsService {
         return true;
       }
       return false;
-    } catch (_) {
+    } catch (e) {
+      appLog('[ICS] import 실패: $e');
       return false;
     }
   }
