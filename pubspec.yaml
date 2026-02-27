@@ -40,6 +40,7 @@ dependencies:
 
   # 홈 위젯 활성화
   home_widget: ^0.7.0
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,4 @@
-// v4.2.2
+// v4.3.3
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
 import 'package:flutter/material.dart';
@@ -572,7 +572,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         headerStyle: HeaderStyle(
             formatButtonVisible: false,
             titleCentered: true,
-            // 💡 [완벽 통일] 어떤 테마이든 '2026년 2월' 포맷으로만 출력되도록 고정
             titleTextFormatter: (d, _) => '${d.year}년 ${d.month}월',
             titleTextStyle:
                 TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: hc),
@@ -723,6 +722,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       itemCount: st.selectedEvents.length,
+      cacheExtent: 500,
       itemBuilder: (_, i) {
         final event = st.selectedEvents[i];
         return GestureDetector(
