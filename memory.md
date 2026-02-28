@@ -143,4 +143,4 @@
 * **Riverpod 상태 불변성(Immutability) 검증:** `copyWith` 호출 시 기존 객체를 변형하지 않고 완전히 독립된 주소값(`identical` == false)을 반환하여 정상적인 UI 리빌드를 유발하는지 증명.
 
 ---
-*(End of Context - Version: v4.3.6)*
+*(End of Context - Version: v4.3.7)*
