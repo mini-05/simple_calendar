@@ -103,6 +103,8 @@
   * `models.dart` 내 Claude가 발생시킨 중괄호 누락 린트 에러 등 클린업 완료.
 * **v4.3.6 (현재 버전):**
   * ICS 백업 파일명을 고정된 문자열에서 동적 생성 포맷(`My_Calendar(backup)_YYYYMMDD_hhmmss.ics`)으로 재변경하여 이전 백업 파일 덮어쓰기 방지 및 이력 관리 강화.
+  * 앱 최적화를 위한 달력 렌더링 Windowing 도입 및 좁은 화면(S10) 대응용 음력 텍스트 반응형 UI(Stack/Positioned) 패치 적용. 
+  * 핵심 로직 5대 단위 테스트(Unit Test)를 Dart 3.0 Records 문법으로 100% 리팩터링 및 구축 완료.
 
 ---
 
@@ -117,27 +119,28 @@
 ---
 
 ## 🔬 5. 단위 테스트 (Unit Test) 명세 및 정책
-> **목적:** 리팩터링 및 신규 기능 추가 시, 기존 핵심 비즈니스 로직(공휴일, 슬롯, 반복일정)이 무너지지 않음을 보장하기 위해 도입. 모든 테스트 코드는 OCP(개방-폐쇄 원칙) 기반의 테이블 주도(Table-driven) 방식으로 작성하며, Dart 3.0의 Records 문법을 활용해 코드를 압축한다.
+> **목적:** 핵심 비즈니스 로직(공휴일, 슬롯, 상태, 포맷터, 반복일정)이 무너지지 않음을 보장하기 위해 도입. 모든 데이터 기반 테스트(Table-driven) 코드는 Map 대신 **Dart 3.0의 Records 문법**을 활용하여 가독성과 OCP(개방-폐쇄) 확장성을 극대화한다.
 
-### ① `test/services/date_formatter_test.dart`
-* **`formatHHmm` 테스트:** 24시간제(13:30)가 12시간제(오후 1:30)로 정확히 변환되는지 검증.
-* **`getChosung` 테스트:** 검색용 한글 초성 추출 정상 작동 검증.
-* **`dateKey` 테스트:** "yyyy-MM-dd" 형태의 제로 패딩 문자열 변환 검증.
-* **[UI 오버플로우 방어 검증]:** `getLunarLabel` 반환값 내에 공백이 100% 제거되었는지 검증하여 S10 등 기기의 UI 잘림 현상 방지.
+### ① `test/services/date_formatter_test.dart` (완료)
+* **`formatHHmm` / `getChosung` / `dateKey` 테스트:** Records 적용 완료. 24시간제 변환(자정/정오/경계값), 한글 초성 추출(숫자/영문 혼용 방어), 제로 패딩 문자열 변환 검증.
+* **[UI 오버플로우 방어 검증]:** `getLunarLabel` 반환값 내에 공백(' ')이 100% 제거되었는지 검증하여 S10 등 기기의 UI 잘림 현상 방지. 설정(`showLunar`) On/Off에 따른 렌더링 무결성 확인.
 
-### ② `test/models/models_test.dart`
-* **`RecurrenceRule.expand` 동적 엔진 검증:** Windowing(기간 한정), 극한의 Limit, 1년 동적 생성, 점프 주기를 검사.
-* **`CalendarEvent` 데이터 무결성 검증:** 10종의 극한 엣지 케이스를 대상으로 JSON 직렬화/역직렬화 데이터 보존율 100% 딥 체킹 수행.
+### ② `test/models/models_test.dart` (완료)
+* **`RecurrenceRule.expand` 동적 엔진 검증:** Records 적용 완료. Windowing(기간 한정 지연 로딩), 극한의 Limit(200년 치), 1년 동적 생성, 주기별 점프 방어벽 검사.
+* **`CalendarEvent` 데이터 무결성 검증:** 10종의 극한 엣지 케이스(다중일, 음수 ID, 커스텀 사운드, 복합 반복 등) 대상 JSON 직렬화/역직렬화 데이터 보존율 100% 딥 체킹 수행.
 
-### ③ `test/services/holidays_test.dart`
-* **[하드코딩 완전 탈피] 5년 치 동적 윈도우 스캐닝:** 대체공휴일 등 매년 무작위로 조건이 바뀌는 환경을 완벽히 통제하기 위해, 특정 연도(예: 2026년)를 하드코딩하는 방식을 폐기하고, **테스트 당해 연도 기준 향후 5년(Window)을 자동 할당하여 엣지 케이스를 자율적으로 찾아내어 검증**.
-* 대체공휴일 동적 산출, 필수 양력 공휴일 누락, 5년 치 명절 연휴 3일 블록 보장 검증.
+### ③ `test/services/holidays_test.dart` (완료)
+* **[하드코딩 완전 탈피] 5년 치 동적 윈도우 스캐닝:** 특정 연도(예: 2026년) 하드코딩 방식을 폐기. 테스트가 실행되는 당해 연도 기준 향후 5년(Window)을 자동 할당하여 대체공휴일 등 엣지 케이스를 자율적으로 찾아내어 검증하는 행위 검증(Behavioral Test) 완료.
+* 대체공휴일 동적 산출 여부, 6대 필수 양력 공휴일 누락, 5년 치 명절 연휴 3일 연속 블록 보장 검증.
 
-### ④ `test/services/slot_calculator_test.dart` (예정)
-* **슬롯(Slot) 배치 검증:** 기간이 겹치는 일정은 서로 다른 슬롯에, 겹치지 않는 일정은 똑똑하게 같은 슬롯에 재배치하여 공간 낭비를 최소화하는지 확인.
+### ④ `test/services/slot_calculator_test.dart` (완료)
+* **슬롯(Slot) 테트리스 배치 검증:** Records 적용 완료. 겹치는 일정 분배 및 빈 슬롯(Slot 0) 스마트 재사용 로직 검증.
+* **정렬 최우선순위 검증:** 기간이 긴 다중일(Multi-day) 일정이 짧은 일정보다 무조건 상단 슬롯을 선점하여 캘린더 UI 깨짐을 방지하는지 확인.
+* **[아키텍처 대응]:** 도메인 객체(`SlotCalculationResult`)에 `operator []` 오버로딩을 위임 구현하여 OCP를 지키면서 테스트 코드의 가독성 향상.
 
-### ⑤ `test/providers/providers_test.dart` (예정)
-* **상태 변이(State Mutation) 검증:** 무음 모드 설정 시 기존 알람 옵션 덮어쓰기, 첫 구동(`isFirstRun`) 환경 판별 시 테마 자동 분기 검증.
+### ⑤ `test/providers/providers_test.dart` (완료)
+* **상태 변이(State Mutation) 비즈니스 로직 검증:** Records 적용 완료. 세부 알람 옵션(소리/진동) 조합의 출력값 검증 및, `globalSilentMode`(무음 모드) 활성화 시 기존 설정을 무시하고 `silent`를 강제 오버라이드하는지 확인.
+* **Riverpod 상태 불변성(Immutability) 검증:** `copyWith` 호출 시 기존 객체를 변형하지 않고 완전히 독립된 주소값(`identical` == false)을 반환하여 정상적인 UI 리빌드를 유발하는지 증명.
 
 ---
 *(End of Context - Version: v4.3.6)*

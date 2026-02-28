@@ -11,6 +11,8 @@ class SlotCalculationResult {
   final List<CalendarEvent> windowEvents;
 
   SlotCalculationResult(this.eventsByDate, this.slotMap, this.windowEvents);
+
+  int? operator [](int eventId) => slotMap[eventId];
 }
 
 class SlotCalculator {
