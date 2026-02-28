@@ -1,6 +1,7 @@
-// v4.3.6
+// v4.3.7
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
+// ignore_for_file: curly_braces_in_flow_control_structures
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -96,6 +97,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       onPressed: () {
                         Navigator.pop(ctx);
                         notifier.jumpToDate(tempDate);
+
+                        // 💡 [수정] 월 선택 시 PageController도 해당 월로 강제 동기화
+                        if (st.settings.calendarNavMode !=
+                                CalendarNavMode.arrow &&
+                            _pageCtrl.hasClients) {
+                          _pageCtrl.jumpToPage(_monthToPage(tempDate));
+                        }
+
                         setState(() {
                           _isPanelOpen = false;
                         });
@@ -401,22 +410,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       color: th.appBarText,
     );
 
-    final Widget titleWidget = isArrow
-        ? GestureDetector(
-            onTap: () => _showMonthPicker(context, st, notifier),
-            child: Text('${focused.year}년', style: dateTextStyle),
-          )
-        : GestureDetector(
-            onTap: () => _showMonthPicker(context, st, notifier),
-            child: Text('${focused.year}년 ${focused.month}월',
-                style: dateTextStyle),
-          );
+    // 💡 [수정] 모드와 상관없이 항상 "YYYY년 M월" 형태로 통합 표시
+    final Widget titleWidget = GestureDetector(
+      onTap: () => _showMonthPicker(context, st, notifier),
+      child: Text('${focused.year}년 ${focused.month}월', style: dateTextStyle),
+    );
 
     final Widget todayBtn = Padding(
       padding: const EdgeInsets.only(right: 14, left: 4),
       child: GestureDetector(
         onTap: () {
-          notifier.jumpToDate(DateTime.now());
+          final now = DateTime.now();
+          notifier.jumpToDate(now);
+
+          // 💡 [수정] '오늘' 버튼 클릭 시 PageController 실제 캘린더 화면도 동기화
+          if (!isArrow && _pageCtrl.hasClients) {
+            _pageCtrl.jumpToPage(_monthToPage(now));
+          }
+
           setState(() {
             _isPanelOpen = false;
           });
@@ -472,6 +483,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     st.masterEvents.where((e) => !e.isHoliday).toList(), th));
             if (e != null) {
               notifier.jumpToDate(e.startDt);
+
+              if (st.settings.calendarNavMode != CalendarNavMode.arrow &&
+                  _pageCtrl.hasClients) {
+                _pageCtrl.jumpToPage(_monthToPage(e.startDt));
+              }
+
               setState(() {
                 _isPanelOpen = true;
               });
@@ -491,70 +508,40 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ? _buildArrowCalendar(st, notifier, th)
         : _buildSwipeCalendar(st, notifier, th);
 
-    Widget header = isArrow
-        ? Padding(
-            padding: const EdgeInsets.fromLTRB(20, 2, 20, 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: () {
-                  _showMonthPicker(context, st, notifier);
-                },
-                child: Text(
-                  '${st.focusedDay.month}월',
-                  style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w300,
-                      letterSpacing: -0.3,
-                      color: th.appBarText),
-                ),
-              ),
-            ),
-          )
-        : const SizedBox.shrink();
-
+    // 💡 [수정] 화살표 모드에서도 상단 AppBar에 년월이 표시되므로, 별도의 월 표시 헤더를 완전히 제거
     if (th.hasRoundedCard) {
       return Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          header,
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-              child: Container(
-                  decoration: BoxDecoration(
-                      color: th.calendarBg,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4))
-                      ]),
-                  child: calWidget),
-            ),
-          ),
-        ]),
-      );
-    }
-    return Expanded(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        header,
-        Expanded(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Container(
               decoration: BoxDecoration(
                   color: th.calendarBg,
-                  borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(28),
-                      bottomRight: Radius.circular(28)),
+                  borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 12,
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 16,
                         offset: const Offset(0, 4))
                   ]),
               child: calWidget),
         ),
-      ]),
+      );
+    }
+
+    return Expanded(
+      child: Container(
+          decoration: BoxDecoration(
+              color: th.calendarBg,
+              borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(28),
+                  bottomRight: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4))
+              ]),
+          child: calWidget),
     );
   }
 
@@ -685,19 +672,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
-  // 💡 [S10 오버플로우 패치 적용 부분]: 화면 폭을 계산하여 음력 텍스트를 커스텀 오버레이로 그립니다.
   Widget _tile(DateTime day, CalendarState st, CalendarTheme th,
       {bool isToday = false, bool isSelected = false, bool isOutside = false}) {
-    // 1. 기기의 화면 너비를 측정
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth <= 360;
 
     String? customLunarText;
 
-    // 2. 바깥 날짜(isOutside)가 아니고 설정에서 켰을 때만 텍스트 계산
     if (!isOutside && st.settings.showLunarCalendar) {
       customLunarText = DateFormatter.getLunarLabel(day, true);
-      // 3. 화면이 좁다면 '음' 글자를 잘라내고 숫자만 남김 ('음10.24' -> '10.24')
       if (isSmallScreen &&
           customLunarText != null &&
           customLunarText.startsWith('음')) {
@@ -716,18 +699,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             isSelected: isSelected,
             isOutside: isOutside,
             isHoliday: st.holidayDates.contains(DateFormatter.dateKey(day)),
-            // CalendarTile 내장 음력 기능은 끄고(false), Stack을 통해 직접 그립니다.
             showLunar: false),
-
-        // 4. 셀(Cell)의 우측 상단에 여백을 주어 음력 텍스트 배치
         if (customLunarText != null)
           Positioned(
-            right: 4.0, // 오른쪽에서 4px 띄움
-            top: 4.0, // 위쪽에서 4px 띄움
+            right: 4.0,
+            top: 4.0,
             child: Text(
               customLunarText,
               style: TextStyle(
-                fontSize: 9.0, // 작은 폰트로 겹침 방지
+                fontSize: 9.0,
                 color: th.isDark ? Colors.white54 : Colors.black54,
               ),
             ),
