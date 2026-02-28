@@ -1,7 +1,8 @@
-// v4.1.0
-// claude_date_formatter.dart
-// lib\services\date_formatter.dart
+// v4.3.6
+// gemini_date_formatter.dart
+// lib/services/date_formatter.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
+
 import 'package:lunar/lunar.dart';
 import '../models/models.dart';
 
@@ -45,6 +46,7 @@ class DateFormatter {
     if (!showLunar) return null;
     try {
       final lunar = Lunar.fromDate(solarDate);
+      // 💡 [패치됨] UI 오버플로우 방지를 위해 '음 ' 대신 공백 없는 '음M.D' 형태로 반환
       return '음${lunar.getMonth()}.${lunar.getDay()}';
     } catch (_) {
       return null;
@@ -53,8 +55,25 @@ class DateFormatter {
 
   static String getChosung(String str) {
     const cho = [
-      'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ',
-      'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'
+      'ㄱ',
+      'ㄲ',
+      'ㄴ',
+      'ㄷ',
+      'ㄸ',
+      'ㄹ',
+      'ㅁ',
+      'ㅂ',
+      'ㅃ',
+      'ㅅ',
+      'ㅆ',
+      'ㅇ',
+      'ㅈ',
+      'ㅉ',
+      'ㅊ',
+      'ㅋ',
+      'ㅌ',
+      'ㅍ',
+      'ㅎ'
     ];
     String result = '';
     for (int i = 0; i < str.length; i++) {

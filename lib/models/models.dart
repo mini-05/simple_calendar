@@ -1,6 +1,7 @@
-// v4.3.5
+// v4.3.6
 // gemini_models.dart
 // lib/models/models.dart
+
 import 'dart:typed_data';
 
 // ── Enum 정의 ────────────────────────────────────────────────────
@@ -124,16 +125,31 @@ class RecurrenceRule {
     );
   }
 
-  List<DateTime> expand(DateTime start, {int limit = 365}) {
+  // 💡 [개선] Windowing(from, to) 파라미터가 추가된 동적 확장 로직
+  List<DateTime> expand(DateTime start,
+      {DateTime? from, DateTime? to, int limit = 100000}) {
     final result = <DateTime>[];
     var cur = start;
-    while (result.length < limit) {
-      // 💡 [수정] Claude가 남긴 중괄호 누락 린트 에러 완벽 해결
+    int count = 0;
+
+    while (count < limit) {
+      // 1. 종료일 초과 시 즉시 중단
       if (until != null && cur.isAfter(until!)) {
         break;
       }
-      result.add(cur);
+
+      // 2. 화면에 필요한 범위(to) 초과 시 연산 최적화 중단
+      if (to != null && cur.isAfter(to)) {
+        break;
+      }
+
+      // 3. 화면 범위(from)에 들어온 날짜만 배열에 추가 (메모리 최적화)
+      if (from == null || !cur.isBefore(from)) {
+        result.add(cur);
+      }
+
       cur = _advance(cur);
+      count++;
     }
     return result;
   }

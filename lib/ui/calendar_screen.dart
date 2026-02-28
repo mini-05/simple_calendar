@@ -1,6 +1,7 @@
-// v4.3.5
+// v4.3.6
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -400,7 +401,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       color: th.appBarText,
     );
 
-    // 💡 [수정] 화살표 모드이든 스와이프 모드이든 '2026년' 부분을 누르면 전체 월 피커가 나오도록 통일
     final Widget titleWidget = isArrow
         ? GestureDetector(
             onTap: () => _showMonthPicker(context, st, notifier),
@@ -685,20 +685,56 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
+  // 💡 [S10 오버플로우 패치 적용 부분]: 화면 폭을 계산하여 음력 텍스트를 커스텀 오버레이로 그립니다.
   Widget _tile(DateTime day, CalendarState st, CalendarTheme th,
-          {bool isToday = false,
-          bool isSelected = false,
-          bool isOutside = false}) =>
-      CalendarTile(
-          day: day,
-          th: th,
-          eventsByDate: st.eventsByDate,
-          slotMap: st.slotMap,
-          isToday: isToday,
-          isSelected: isSelected,
-          isOutside: isOutside,
-          isHoliday: st.holidayDates.contains(DateFormatter.dateKey(day)),
-          showLunar: st.settings.showLunarCalendar);
+      {bool isToday = false, bool isSelected = false, bool isOutside = false}) {
+    // 1. 기기의 화면 너비를 측정
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth <= 360;
+
+    String? customLunarText;
+
+    // 2. 바깥 날짜(isOutside)가 아니고 설정에서 켰을 때만 텍스트 계산
+    if (!isOutside && st.settings.showLunarCalendar) {
+      customLunarText = DateFormatter.getLunarLabel(day, true);
+      // 3. 화면이 좁다면 '음' 글자를 잘라내고 숫자만 남김 ('음10.24' -> '10.24')
+      if (isSmallScreen &&
+          customLunarText != null &&
+          customLunarText.startsWith('음')) {
+        customLunarText = customLunarText.substring(1);
+      }
+    }
+
+    return Stack(
+      children: [
+        CalendarTile(
+            day: day,
+            th: th,
+            eventsByDate: st.eventsByDate,
+            slotMap: st.slotMap,
+            isToday: isToday,
+            isSelected: isSelected,
+            isOutside: isOutside,
+            isHoliday: st.holidayDates.contains(DateFormatter.dateKey(day)),
+            // CalendarTile 내장 음력 기능은 끄고(false), Stack을 통해 직접 그립니다.
+            showLunar: false),
+
+        // 4. 셀(Cell)의 우측 상단에 여백을 주어 음력 텍스트 배치
+        if (customLunarText != null)
+          Positioned(
+            right: 4.0, // 오른쪽에서 4px 띄움
+            top: 4.0, // 위쪽에서 4px 띄움
+            child: Text(
+              customLunarText,
+              style: TextStyle(
+                fontSize: 9.0, // 작은 폰트로 겹침 방지
+                color: th.isDark ? Colors.white54 : Colors.black54,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   Widget _buildSectionLabel(BuildContext context, CalendarState st,
       CalendarNotifier notifier, CalendarTheme th) {
