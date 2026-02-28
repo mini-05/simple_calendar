@@ -1,5 +1,7 @@
+// v4.3.6
+// claude_event_editor.dart
+// lib/ui/dialogs/event_editor.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
-// ui/dialogs/event_editor.dart
 // 일정 추가/수정용 모듈형 다이얼로그.
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';

@@ -1,4 +1,4 @@
-// v4.3.3
+// v4.3.6
 // gemini_services.dart
 // lib/services/services.dart
 import 'dart:io' show File, Platform;
@@ -298,6 +298,11 @@ class AppSettingsStorage {
   static Future<void> save(AppSettings s) async {
     await _ss.write(key: _key, value: jsonEncode(s.toJson()));
   }
+
+  static Future<bool> isFirstRun() async {
+    final raw = await _ss.read(key: _key);
+    return raw == null;
+  }
 }
 
 class EventStorage {
@@ -381,7 +386,7 @@ class IcsService {
       final buf = StringBuffer();
       buf.writeln('BEGIN:VCALENDAR');
       buf.writeln('VERSION:2.0');
-      buf.writeln('PRODID:-//My Calendar App//v4.3.0//EN');
+      buf.writeln('PRODID:-//My Calendar App//v4.3.6//EN');
 
       String formatDt(DateTime d) =>
           '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
@@ -414,8 +419,14 @@ class IcsService {
       }
       buf.writeln('END:VCALENDAR');
 
+      // 💡 [수정] 백업 파일명을 My_Calendar(backup)_YYYYMMDD_hhmmss 포맷으로 변경
+      final now = DateTime.now();
+      final timestamp =
+          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+      final fileName = 'My_Calendar(backup)_$timestamp.ics';
+
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/my_calendar_backup.ics');
+      final file = File('${dir.path}/$fileName');
       await file.writeAsString(buf.toString());
       await Share.shareXFiles([XFile(file.path)], text: '내 캘린더 ics 백업 파일입니다.');
     } catch (e) {

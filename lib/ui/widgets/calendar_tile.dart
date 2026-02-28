@@ -1,5 +1,5 @@
-// v4.1.0
-// calendar_tile.dart
+// v4.3.6
+// claude_calendar_tile.dart
 // lib/ui/widgets/calendar_tile.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
 import 'package:flutter/material.dart';

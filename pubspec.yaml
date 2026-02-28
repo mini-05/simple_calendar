@@ -1,8 +1,8 @@
-# v4.1.0
+# v4.3.6
 name: simple_calendar
-description: My Calendar App v4.1.0 — SoC 리팩터링 + Riverpod + 반복 일정
+description: My Calendar App — SoC 리팩터링 + Riverpod + 반복 일정
 publish_to: none
-version: 4.1.0+10
+version: 4.3.6+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"

@@ -1,5 +1,5 @@
-// v4.1.0
-// home_widget_service.dart
+// v4.3.6
+// claude_home_widget_service.dart
 // lib/services/home_widget_service.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
 import 'package:flutter/foundation.dart';

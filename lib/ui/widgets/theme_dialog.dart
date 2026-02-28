@@ -1,4 +1,7 @@
-// ui/widgets/theme_dialog.dart
+// v4.3.6
+// claude_theme_dialog.dart
+// lib/ui/widgets/theme_dialog.dart
+// ignore_for_file: curly_braces_in_flow_control_structures
 // 설정 내 테마 선택 그리드 UI
 import 'package:flutter/material.dart';
 import '../../models/models.dart';

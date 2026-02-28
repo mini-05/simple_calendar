@@ -1,10 +1,12 @@
+// v4.3.6
+// claude_app_config.dart
 // lib/app_config.dart
+// ignore_for_file: curly_braces_in_flow_control_structures
 class AppConfig {
   static const appGroupId = 'group.com.example.mycalendar';
   static const iosWidgetName = 'CalendarWidget';
   static const androidWidgetProvider = 'CalendarWidgetProvider';
 }
-// v4.0.1 — 글로벌 설정 및 상수 관리
 //abstract class AppConfig {
 //  // 💡 실제 출시하실 앱의 패키지명(Bundle ID)으로 변경해 주세요.
 //  static const String appId = 'com.yourcompany.mycalendar';

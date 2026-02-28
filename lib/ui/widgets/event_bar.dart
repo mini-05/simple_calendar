@@ -1,5 +1,7 @@
+// v4.3.6
+// claude_event_bar.dart
+// lib/ui/widgets/event_bar.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
-// ui/widgets/event_bar.dart
 // 달력 셀(CalendarTile) 내부에 그려지는 이벤트 막대(Bar) 위젯.
 // showTextInside=true 테마(삼성/네이버)에서만 사용됩니다.
 import 'package:flutter/material.dart';

@@ -1,8 +1,9 @@
-// v4.3.3
+// v4.3.5
 // gemini_providers.dart
 // lib/providers/providers.dart
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb, compute;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/services.dart';
@@ -115,8 +116,17 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
       EventStorage.loadAll(),
     ]);
 
-    final settings = results[0] as AppSettings;
+    AppSettings settings = results[0] as AppSettings;
     final events = results[1] as List<CalendarEvent>;
+
+    // 💡 [v4.3.5 변경] iOS가 아닌 모든 플랫폼(Android, Windows 등)은 삼성 테마 기본 적용
+    final isFirstRun = await AppSettingsStorage.isFirstRun();
+    if (isFirstRun) {
+      final defaultTheme =
+          (!kIsWeb && Platform.isIOS) ? AppTheme.apple : AppTheme.samsung;
+      settings = settings.copyWith(currentTheme: defaultTheme);
+      await AppSettingsStorage.save(settings);
+    }
 
     state = state.copyWith(settings: settings);
 

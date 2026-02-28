@@ -1,4 +1,4 @@
-// v4.3.3
+// v4.3.5
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
 import 'package:flutter/material.dart';
@@ -390,6 +390,66 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       'DEC'
     ];
     final today = DateTime.now();
+    final isArrow = st.settings.calendarNavMode == CalendarNavMode.arrow;
+    final focused = st.focusedDay;
+
+    final dateTextStyle = TextStyle(
+      fontSize: 22,
+      fontWeight: FontWeight.w300,
+      letterSpacing: -0.3,
+      color: th.appBarText,
+    );
+
+    // 💡 [수정] 화살표 모드이든 스와이프 모드이든 '2026년' 부분을 누르면 전체 월 피커가 나오도록 통일
+    final Widget titleWidget = isArrow
+        ? GestureDetector(
+            onTap: () => _showMonthPicker(context, st, notifier),
+            child: Text('${focused.year}년', style: dateTextStyle),
+          )
+        : GestureDetector(
+            onTap: () => _showMonthPicker(context, st, notifier),
+            child: Text('${focused.year}년 ${focused.month}월',
+                style: dateTextStyle),
+          );
+
+    final Widget todayBtn = Padding(
+      padding: const EdgeInsets.only(right: 14, left: 4),
+      child: GestureDetector(
+        onTap: () {
+          notifier.jumpToDate(DateTime.now());
+          setState(() {
+            _isPanelOpen = false;
+          });
+        },
+        child: Center(
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+                border: Border.all(color: th.appBarText, width: 1.8),
+                borderRadius: BorderRadius.circular(10)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(monthNames[today.month - 1],
+                    style: TextStyle(
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.1,
+                        color: th.appBarText,
+                        letterSpacing: 0.5)),
+                Text('${today.day}',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        height: 1.1,
+                        color: th.appBarText)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
 
     return AppBar(
       backgroundColor: th.scaffoldBg,
@@ -400,6 +460,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           _scaffoldKey.currentState?.openDrawer();
         },
       ),
+      title: titleWidget,
+      titleSpacing: 0,
       actions: [
         IconButton(
           icon: Icon(Icons.search, color: th.appBarText, size: 26),
@@ -416,44 +478,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             }
           },
         ),
-        Padding(
-          padding: const EdgeInsets.only(right: 14, left: 4),
-          child: GestureDetector(
-            onTap: () {
-              notifier.jumpToDate(DateTime.now());
-              setState(() {
-                _isPanelOpen = false;
-              });
-            },
-            child: Center(
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                    border: Border.all(color: th.appBarText, width: 1.8),
-                    borderRadius: BorderRadius.circular(10)),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(monthNames[today.month - 1],
-                        style: TextStyle(
-                            fontSize: 7.5,
-                            fontWeight: FontWeight.w600,
-                            height: 1.1,
-                            color: th.appBarText,
-                            letterSpacing: 0.5)),
-                    Text('${today.day}',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            height: 1.1,
-                            color: th.appBarText)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+        todayBtn,
       ],
     );
   }
@@ -467,9 +492,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         : _buildSwipeCalendar(st, notifier, th);
 
     Widget header = isArrow
-        ? const SizedBox.shrink()
-        : Padding(
-            padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
+        ? Padding(
+            padding: const EdgeInsets.fromLTRB(20, 2, 20, 6),
             child: Align(
               alignment: Alignment.centerLeft,
               child: GestureDetector(
@@ -477,16 +501,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   _showMonthPicker(context, st, notifier);
                 },
                 child: Text(
-                  '${st.focusedDay.year}년 ${st.focusedDay.month}월',
+                  '${st.focusedDay.month}월',
                   style: TextStyle(
-                      fontSize: 26,
+                      fontSize: 22,
                       fontWeight: FontWeight.w300,
                       letterSpacing: -0.3,
                       color: th.appBarText),
                 ),
               ),
             ),
-          );
+          )
+        : const SizedBox.shrink();
 
     if (th.hasRoundedCard) {
       return Expanded(
@@ -572,9 +597,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         headerStyle: HeaderStyle(
             formatButtonVisible: false,
             titleCentered: true,
-            titleTextFormatter: (d, _) => '${d.year}년 ${d.month}월',
-            titleTextStyle:
-                TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: hc),
+            titleTextFormatter: (d, _) => '',
+            titleTextStyle: const TextStyle(fontSize: 0),
             leftChevronIcon: Icon(Icons.chevron_left, color: hc),
             rightChevronIcon: Icon(Icons.chevron_right, color: hc)),
         onHeaderTapped: (date) {

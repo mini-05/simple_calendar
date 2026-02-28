@@ -1,5 +1,7 @@
+// v4.3.6
+// claude_app_theme.dart
+// lib/theme/app_theme.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
-// theme/app_theme.dart
 // 디자인 시스템 (Design System)
 // - 6종 테마의 색상 및 UI 속성 정의
 // - showTextInside: Bar 표시 vs Dot 표시 분기 플래그

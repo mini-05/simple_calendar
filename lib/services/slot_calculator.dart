@@ -1,5 +1,7 @@
+// v4.3.6
+// claude_slot_calculator.dart
+// lib/services/slot_calculator.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
-// v3.6.2
 import '../models/models.dart';
 import 'date_formatter.dart';
 
