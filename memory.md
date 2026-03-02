@@ -19,7 +19,7 @@
    * `curly_braces_in_flow_control_structures`: `if`, `for`, `while` 등 모든 제어문은 코드가 한 줄이더라도 **반드시 중괄호 `{ }`**를 사용하여 블록을 감싼다.
 3. **비동기 타입 엄수:** `Future<void>` 반환 콜백(예: `onSave`)은 반드시 `async`와 `await`를 명시하여 `body_might_complete_normally` 경고를 원천 차단한다.
 4. **패키지명 강제 유지:** 앱의 표시 이름은 "My Calendar"이지만, `build.gradle`이나 `AndroidManifest.xml` 등에 들어가는 패키지명은 무조건 **`simple_calendar`**를 유지한다. (AI 임의 변경 감시)
-5. **파일 헤더 규칙:** 모든 dart 파일 1번째 줄은 `// v실제버전` (예: `// v4.3.6`), 2번째 줄은 작성 AI에 따라 `// claude_파일명.dart` 또는 `// gemini_파일명.dart`, 3번째 줄은 `// lib/경로/파일명.dart`. pubspec.yaml도 1번째 줄에 `# v실제버전` 주석 표기, `version:` 필드는 `x.x.x+y` 형식 유지.
+5. **파일 헤더 규칙:** 모든 dart 파일 1번째 줄은 `// v실제버전` (예: `// v4.3.7`), 2번째 줄은 작성 AI에 따라 `// claude_파일명.dart` 또는 `// gemini_파일명.dart`, 3번째 줄은 `// lib/경로/파일명.dart`. pubspec.yaml도 1번째 줄에 `# v실제버전` 주석 표기, `version:` 필드는 `x.x.x+y` 형식 유지. (**단, 내용이 실제로 수정될 때만 버전을 갱신한다.**)
 6. **[Claude 전용] 세션 요약 파일 자동 생성:** Claude는 매 작업 세션 종료 시 반드시 세션 요약 파일을 생성한다.
    * 파일명 형식: `claude_summary_YYYYMMDD_v실제버전.md` (예: `claude_summary_20260228_v4.3.6.md`)
    * 같은 날 같은 버전으로 파일이 이미 존재할 경우 `+빌드번호`를 뒤에 추가 (예: `claude_summary_20260228_v4.3.6+2.md`)
@@ -30,9 +30,22 @@
    * 메이저 버전(첫 번째 x)이 바뀔 때만 **"[README.md] 또는 [memory.md] 업데이트 사항을 보여드릴까요?"** 라고 묻는다.
    * 단, AI 컨텍스트 상태가 `[🟡 주의]`일 때는 묻지 않고 `memory.md` 전체를 무조건 출력하여 기억을 강제 리프레시한다.
 9. **[절대 규칙] 히스토리(Changelog) 보존 및 상세 기록 원칙:** AI는 토큰을 절약한다는 핑계로 `memory.md`의 내용을 절대 임의로 축약, 요약, 또는 과거 내역을 삭제해선 안 된다. **"이전에 작성된 memory의 내용은 절대 지우지 마"** (개발자 특별 지시사항). 아무리 텍스트가 길어져도 기존의 세세한 포맷을 100% 무조건 유지하며 새 버전과 단위 테스트 항목을 하단에 누적해야 한다.
-10. **[자동 반영 원칙 및 최적화 철학]** 사용자의 명시적 지시가 없더라도 대화 중 도출된 정책은 자동 누적한다. 
+10. **[자동 반영 원칙 및 최적화 철학]** 사용자의 명시적 지시가 없더라도 대화 중 도출된 정책은 자동 누적한다.
     * **앱 최적화(Windowing):** 무한 생성으로 인한 OOM 방지를 위해 `limit`에 의존하기보다, 달력 화면의 가시 범위(`from` ~ `to`) 내에서만 일정을 동적으로 생성하는 **Windowing(기간 한정 지연 로딩) 기법**을 `RecurrenceRule.expand`에 적용하여 메모리와 디스크 효율을 극대화한다.
     * **UI 오버플로우 방어:** S10 등 좁은 화면 기기에서 음력 일자(2자리)가 잘려 '음'만 표시되는 UI 버그를 원천 차단하기 위해, 날짜 포맷팅 시 공백 없는 초압축 형태('음10.24')를 유지하며, 달력 셀 내 우측 상단 오버레이(Stack/Positioned)를 통해 렌더링을 보장한다.
+11. **[v4.3.7 추가] Dart 3.0 Switch Expression 적용 기준:**
+    * **적용 O:** 단순 값 매핑(enum → 문자열/객체)만 하는 switch. 지역변수 불필요, exhaustive 보장.
+    * **적용 X (기존 switch-case 유지):** 케이스 내부에 지역변수(예: `lastDay`)가 필요한 경우. switch expression으로 변환 시 즉시실행 클로저 `()()` 필요 → 오히려 가독성 저하.
+    * **적용 X (구조 분해 미적용):** `split(':')` 후 List destructuring `final [h, m] = ...` 형태. 외부 데이터(ICS 등)에서 잘못된 입력 시 length 체크 없이 크래시 발생 → 안전장치 필수.
+12. **[v4.3.7 추가] 테마 클래스 설계 원칙 (OCP 준수):**
+    * Samsung/Naver처럼 레이아웃 구조가 100% 동일하고 색상값만 다른 테마는 **단일 클래스 + named parameter** 방식으로 통합한다 (예: `BarCardTheme`).
+    * 통합 클래스 내부에서 `_type == AppTheme.samsung` 같은 조건 분기로 색상을 결정하는 방식은 **OCP 위반** → 반드시 named parameter로 주입받아야 한다.
+    * 새 테마 추가 시 기존 테마 클래스 코드를 수정하지 않고 `AppThemeExt`에서 생성자 호출만 추가하면 되는 구조를 유지한다.
+13. **[v4.3.7 추가] God Object 분리 원칙:**
+    * `calendar_screen.dart` 내부의 inner class들 중 `CalendarScreen`의 State와 생명주기를 공유하지 않는 클래스는 별도 파일로 분리한다.
+    * 분리 시 클래스명의 언더스코어(private) 제거하여 public class로 승격 (예: `_EventSearchDelegate` → `EventSearchDelegate`).
+    * 분리된 파일 위치: `lib/ui/widgets/` 디렉토리.
+    * **유지(분리 불가):** `_buildArrowCalendar`, `_buildSwipeCalendar`는 `PageController` 등 State와 생명주기를 밀접하게 공유하므로 내부 메서드로 유지.
 
 ---
 
@@ -101,17 +114,39 @@
   * 화살표 모드 AppBar UI 통합: 년도/월 어느 것을 터치해도 동일하게 전체 `CupertinoDatePicker`가 호출되도록 수정 (`_showYearPicker` 제거).
   * `pubspec.yaml` 버전 표기법 롤백 (`버전+빌드번호`).
   * `models.dart` 내 Claude가 발생시킨 중괄호 누락 린트 에러 등 클린업 완료.
-* **v4.3.6 (현재 버전):**
+* **v4.3.6:**
   * ICS 백업 파일명을 고정된 문자열에서 동적 생성 포맷(`My_Calendar(backup)_YYYYMMDD_hhmmss.ics`)으로 재변경하여 이전 백업 파일 덮어쓰기 방지 및 이력 관리 강화.
-  * 앱 최적화를 위한 달력 렌더링 Windowing 도입 및 좁은 화면(S10) 대응용 음력 텍스트 반응형 UI(Stack/Positioned) 패치 적용. 
+  * 앱 최적화를 위한 달력 렌더링 Windowing 도입 및 좁은 화면(S10) 대응용 음력 텍스트 반응형 UI(Stack/Positioned) 패치 적용.
   * 핵심 로직 5대 단위 테스트(Unit Test)를 Dart 3.0 Records 문법으로 100% 리팩터링 및 구축 완료.
+* **v4.3.7 (현재 버전):**
+  * **[Gemini] GitHub Actions 빌드 파이프라인 최적화:** APK/AAB 파일명을 `My_Calendar_v버전` 형태로 자동 변경하도록 `build_apk.yml` 수정.
+  * **[Gemini] UX 버그 픽스:** 스와이프 모드에서 '오늘' 버튼 클릭 시 Riverpod 상태뿐 아니라 `PageController` 화면도 오늘 날짜로 즉시 동기화.
+  * **[Gemini] UI 아키텍처 최적화:** 화살표 모드 년월 표기를 AppBar에 통합, 불필요한 달력 위 헤더와 `Column` 껍데기 제거.
+  * **[Gemini+Claude 합의] `models.dart` 코드 다이어트:**
+    * `AlarmModeExt.label`에 Dart 3.0 Switch Expression 적용: 14줄 → 8줄 압축.
+    * `_advance()`: monthly/yearly 케이스 내 지역변수(`lastDay`) 필요 → 즉시실행 클로저 `()()` 없이는 switch expression 불가, 가독성 저하로 **기존 switch-case 유지**.
+    * `alarmDateTime` split: ICS 외부 데이터 크래시 방지를 위해 `length != 2` 안전장치 필수 → List destructuring **미적용**.
+  * **[Gemini+Claude 합의] `app_theme.dart` 대규모 구조 개선:**
+    * `SamsungTheme`(76줄) + `NaverTheme`(75줄) → `BarCardTheme` 단일 클래스로 통합. 약 90줄 감축.
+    * **Gemini 원안 문제점:** `BarCardTheme` 내부에서 `_type == AppTheme.samsung` 삼항 연산으로 색상 4개(`appBarText`, `eventTitleText`, `eventSubText`, `sectionLabelText`) 결정 → OCP 위반 (새 테마 추가 시 내부 코드 수정 필요).
+    * **Claude 수정:** 해당 색상 4개를 named parameter로 받아 완전한 데이터 주입 방식으로 교체. OCP 완성.
+    * `AppThemeExt.themeData`: switch { case: return } 30줄 → Dart 3.0 switch expression 15줄로 압축.
+    * 두 테마의 실제 차이점(확인 후 각 파라미터에 반영):
+      - Samsung: `cellTextAlignment=Alignment.topLeft`, `markerRadius=12.0`(원형 마커)
+      - Naver: `cellTextAlignment=Alignment.center`(기본값), `markerRadius=3.0`(라운드 사각 마커)
+  * **[Claude] `calendar_screen.dart` → `search_delegate.dart` 분리:**
+    * `_EventSearchDelegate`(82줄)를 `lib/ui/widgets/search_delegate.dart`로 분리.
+    * 클래스명 `_EventSearchDelegate` → `EventSearchDelegate` (private → public).
+    * `calendar_screen.dart`에 `import 'widgets/search_delegate.dart';` 추가.
+    * 호출부: `delegate: _EventSearchDelegate(...)` → `delegate: EventSearchDelegate(...)`.
+    * 결과: `calendar_screen.dart` 1,392줄 → 1,311줄 (81줄 감축).
 
 ---
 
 ## 🎯 4. 향후 마일스톤 (Upcoming Milestones)
 ### [v4.4.0] UI 아키텍처 전면 리팩터링 계획
-> **목적:** 1,400줄을 초과한 God Object(`calendar_screen.dart`)를 OCP 원칙에 맞게 해체하여 유지보수성 극대화. 기능 추가 없이 구조만 변경하는 클린업 버전.
-1. **1순위:** `_EventSearchDelegate` ➡️ `lib/ui/widgets/search_delegate.dart`로 독립 분리.
+> **목적:** 1,300줄을 초과한 God Object(`calendar_screen.dart`)를 OCP 원칙에 맞게 해체하여 유지보수성 극대화. 기능 추가 없이 구조만 변경하는 클린업 버전.
+1. **완료:** `_EventSearchDelegate` ➡️ `lib/ui/widgets/search_delegate.dart` (v4.3.7에서 완료)
 2. **2순위:** `_AppSettingsSheet` ➡️ `lib/ui/widgets/settings_sheet.dart`로 분리 (새로운 설정 추가 시 메인 UI 수정을 막기 위한 OCP 실현). Riverpod의 `ConsumerWidget`을 상속하여 파라미터 전달 최소화.
 3. **3순위:** `_buildDrawer` ➡️ `lib/ui/widgets/app_drawer.dart`로 분리 (`ConsumerWidget` 적용).
 4. **유지:** `_buildArrowCalendar` 및 `_buildSwipeCalendar`는 메인 캘린더 상태(State)와 생명주기를 밀접하게 공유하므로 내부 메서드로 유지.

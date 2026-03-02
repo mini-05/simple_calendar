@@ -1,5 +1,5 @@
-// v4.3.6
-// gemini_models.dart
+// v4.3.7
+// claude_models.dart
 // lib/models/models.dart
 
 import 'dart:typed_data';
@@ -19,19 +19,17 @@ enum CalendarNavMode {
 
 enum AlarmMode { silent, soundOnly, vibrationOnly, soundAndVibration }
 
+// [v4.3.7] Dart 3.0 Switch Expression 적용: 14줄 → 8줄
+// 동작 100% 동일. enum exhaustive 보장을 컴파일러가 검사.
+// _advance()는 monthly/yearly에 지역변수(lastDay) 필요 → 클로저 필요해 가독성 저하로 기존 유지
+// alarmDateTime split은 length!=2 안전장치 필수(ICS 외부 입력 크래시 방지) → 기존 유지
 extension AlarmModeExt on AlarmMode {
-  String get label {
-    switch (this) {
-      case AlarmMode.silent:
-        return '무음';
-      case AlarmMode.soundOnly:
-        return '소리';
-      case AlarmMode.vibrationOnly:
-        return '진동';
-      case AlarmMode.soundAndVibration:
-        return '소리+진동';
-    }
-  }
+  String get label => switch (this) {
+        AlarmMode.silent => '무음',
+        AlarmMode.soundOnly => '소리',
+        AlarmMode.vibrationOnly => '진동',
+        AlarmMode.soundAndVibration => '소리+진동',
+      };
 }
 
 enum NotificationSound {
@@ -125,7 +123,6 @@ class RecurrenceRule {
     );
   }
 
-  // 💡 [개선] Windowing(from, to) 파라미터가 추가된 동적 확장 로직
   List<DateTime> expand(DateTime start,
       {DateTime? from, DateTime? to, int limit = 100000}) {
     final result = <DateTime>[];
@@ -133,27 +130,23 @@ class RecurrenceRule {
     int count = 0;
 
     while (count < limit) {
-      // 1. 종료일 초과 시 즉시 중단
       if (until != null && cur.isAfter(until!)) {
         break;
       }
-
-      // 2. 화면에 필요한 범위(to) 초과 시 연산 최적화 중단
       if (to != null && cur.isAfter(to)) {
         break;
       }
-
-      // 3. 화면 범위(from)에 들어온 날짜만 배열에 추가 (메모리 최적화)
       if (from == null || !cur.isBefore(from)) {
         result.add(cur);
       }
-
       cur = _advance(cur);
       count++;
     }
     return result;
   }
 
+  // monthly/yearly: 지역변수 lastDay 필요 → switch expression 변환 시
+  // 즉시실행 클로저 ()() 가 필요해 오히려 가독성 저하 → 기존 switch-case 유지
   DateTime _advance(DateTime d) {
     switch (frequency) {
       case RecurrenceFrequency.daily:
@@ -351,6 +344,7 @@ class CalendarEvent {
     if (startTime == null) {
       return null;
     }
+    // ICS 외부 데이터 크래시 방지: length 체크 필수 → List destructuring 미적용
     final parts = startTime!.split(':');
     if (parts.length != 2) {
       return null;
