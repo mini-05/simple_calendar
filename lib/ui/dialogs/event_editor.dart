@@ -1,14 +1,11 @@
-// v4.3.6
-// claude_event_editor.dart
+// v4.4.0
+// gemini_event_editor.dart
 // lib/ui/dialogs/event_editor.dart
-// ignore_for_file: curly_braces_in_flow_control_structures
-// 일정 추가/수정용 모듈형 다이얼로그.
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../models/models.dart';
-import '../../services/services.dart';
-import '../../services/date_formatter.dart';
 import '../../theme/app_theme.dart';
+import '../../services/services.dart'; // 💡 date_formatter 개별 임포트 삭제됨!
 
 Future<void> showEventEditor({
   required BuildContext context,

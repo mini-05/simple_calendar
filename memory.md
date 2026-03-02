@@ -19,7 +19,7 @@
    * `curly_braces_in_flow_control_structures`: `if`, `for`, `while` 등 모든 제어문은 코드가 한 줄이더라도 **반드시 중괄호 `{ }`**를 사용하여 블록을 감싼다.
 3. **비동기 타입 엄수:** `Future<void>` 반환 콜백(예: `onSave`)은 반드시 `async`와 `await`를 명시하여 `body_might_complete_normally` 경고를 원천 차단한다.
 4. **패키지명 강제 유지:** 앱의 표시 이름은 "My Calendar"이지만, `build.gradle`이나 `AndroidManifest.xml` 등에 들어가는 패키지명은 무조건 **`simple_calendar`**를 유지한다. (AI 임의 변경 감시)
-5. **파일 헤더 규칙:** 모든 dart 파일 1번째 줄은 `// v실제버전` (예: `// v4.3.7`), 2번째 줄은 작성 AI에 따라 `// claude_파일명.dart` 또는 `// gemini_파일명.dart`, 3번째 줄은 `// lib/경로/파일명.dart`. pubspec.yaml도 1번째 줄에 `# v실제버전` 주석 표기, `version:` 필드는 `x.x.x+y` 형식 유지. (**단, 내용이 실제로 수정될 때만 버전을 갱신한다.**)
+5. **파일 헤더 규칙:** 모든 dart 파일 1번째 줄은 `// v실제버전` (예: `// v4.3.9`), 2번째 줄은 작성 AI에 따라 `// claude_파일명.dart` 또는 `// gemini_파일명.dart`, 3번째 줄은 `// lib/경로/파일명.dart`. pubspec.yaml도 1번째 줄에 `# v실제버전` 주석 표기, `version:` 필드는 `x.x.x+y` 형식 유지. (**단, 내용이 실제로 수정될 때만 버전을 갱신한다.**)
 6. **[Claude 전용] 세션 요약 파일 자동 생성:** Claude는 매 작업 세션 종료 시 반드시 세션 요약 파일을 생성한다.
    * 파일명 형식: `claude_summary_YYYYMMDD_v실제버전.md` (예: `claude_summary_20260228_v4.3.6.md`)
    * 같은 날 같은 버전으로 파일이 이미 존재할 경우 `+빌드번호`를 뒤에 추가 (예: `claude_summary_20260228_v4.3.6+2.md`)
@@ -46,6 +46,9 @@
     * 분리 시 클래스명의 언더스코어(private) 제거하여 public class로 승격 (예: `_EventSearchDelegate` → `EventSearchDelegate`).
     * 분리된 파일 위치: `lib/ui/widgets/` 디렉토리.
     * **유지(분리 불가):** `_buildArrowCalendar`, `_buildSwipeCalendar`는 `PageController` 등 State와 생명주기를 밀접하게 공유하므로 내부 메서드로 유지.
+14. **[v4.3.9 추가] 성능 최적화 및 중복 코드 제거 원칙:**
+    * **Windowing 강제:** `RecurrenceRule.expand()` 호출 시 반드시 `from`/`to` 파라미터를 전달하여 Windowing을 활성화한다 (`limit` 단독 사용 시 반복문 내 무의미한 CPU/메모리 연산 발생).
+    * **중복 헬퍼화:** 여러 파일/클래스에서 동일하게 사용되는 로직(`_dateKey` 등)은 인스턴스/지역 메서드로 중복 생성하지 않고, top-level 헬퍼 함수나 유틸 클래스로 통합한다.
 
 ---
 
@@ -118,7 +121,9 @@
   * ICS 백업 파일명을 고정된 문자열에서 동적 생성 포맷(`My_Calendar(backup)_YYYYMMDD_hhmmss.ics`)으로 재변경하여 이전 백업 파일 덮어쓰기 방지 및 이력 관리 강화.
   * 앱 최적화를 위한 달력 렌더링 Windowing 도입 및 좁은 화면(S10) 대응용 음력 텍스트 반응형 UI(Stack/Positioned) 패치 적용.
   * 핵심 로직 5대 단위 테스트(Unit Test)를 Dart 3.0 Records 문법으로 100% 리팩터링 및 구축 완료.
-* **v4.3.7 (현재 버전):**
+
+### [대규모 구조 개선 및 성능 튜닝기]
+* **v4.3.7:**
   * **[Gemini] GitHub Actions 빌드 파이프라인 최적화:** APK/AAB 파일명을 `My_Calendar_v버전` 형태로 자동 변경하도록 `build_apk.yml` 수정.
   * **[Gemini] UX 버그 픽스:** 스와이프 모드에서 '오늘' 버튼 클릭 시 Riverpod 상태뿐 아니라 `PageController` 화면도 오늘 날짜로 즉시 동기화.
   * **[Gemini] UI 아키텍처 최적화:** 화살표 모드 년월 표기를 AppBar에 통합, 불필요한 달력 위 헤더와 `Column` 껍데기 제거.
@@ -140,16 +145,26 @@
     * `calendar_screen.dart`에 `import 'widgets/search_delegate.dart';` 추가.
     * 호출부: `delegate: _EventSearchDelegate(...)` → `delegate: EventSearchDelegate(...)`.
     * 결과: `calendar_screen.dart` 1,392줄 → 1,311줄 (81줄 감축).
+* **v4.3.8:**
+  * **God Object 해체 완료:** `calendar_screen.dart`에 남아있던 `_AppSettingsSheet`와 `_buildDrawer`를 각각 `settings_sheet.dart` 및 `app_drawer.dart`(`ConsumerStatefulWidget`)로 분리. 메인 UI 코드를 800줄로 최적화.
+  * **Windowing 성능 버그 픽스 (`providers.dart`):** `RecurrenceRule.expand` 호출 시 `from`/`to` 파라미터를 누락해 전체 생성 후 필터링하던 비효율 로직을 찾아내 수정. 약 25개월 가시 범위만 생성하도록 최적화.
+  * **동적 인포그래픽 위젯 뼈대 구축:** `models.dart`에 `WidgetTheme` enum 신설, `app_theme.dart`에 `DynamicWidgetConfig` sealed class 추가. `home_widget_service.dart`에 네이티브 통신 파이프라인(날짜/디자인 토큰) 개통.
+* **v4.3.9 (현재 버전):**
+  * **디자인 시스템 완성:** 우주 테마(Astronomical)를 추가하여 총 4종의 동적 위젯/스플래시 디자인 토큰 구축. 주차 표기법을 직관적 형태(예: '10주차')로 통합.
+  * **알람 시스템 치명적 버그 수정 (`providers.dart`):**
+    * `NotificationService.initNotifications()`에 `await`를 누락하여 타임존 초기화 전 스케줄링이 발생하던 잠재적 버그 수정.
+    * `_rescheduleAllAlarms` 루프에서 반복 일정 인스턴스(`isRecurrenceInstance == true`)가 중복 스케줄링되어 알람이 오작동하는 문제 원천 차단.
+  * **UX 극강 개선 (`calendar_screen.dart`):** `AnimatedPositioned` 슬라이드 패널을 `_PanelDragWrapper`라는 실시간 드래그 반응형 전용 위젯으로 교체. 빈 영역 쓸어내리기 제스처 감지 및 속도 기반 스냅(`easeInOutCubic`) 적용.
 
 ---
 
 ## 🎯 4. 향후 마일스톤 (Upcoming Milestones)
-### [v4.4.0] UI 아키텍처 전면 리팩터링 계획
-> **목적:** 1,300줄을 초과한 God Object(`calendar_screen.dart`)를 OCP 원칙에 맞게 해체하여 유지보수성 극대화. 기능 추가 없이 구조만 변경하는 클린업 버전.
-1. **완료:** `_EventSearchDelegate` ➡️ `lib/ui/widgets/search_delegate.dart` (v4.3.7에서 완료)
-2. **2순위:** `_AppSettingsSheet` ➡️ `lib/ui/widgets/settings_sheet.dart`로 분리 (새로운 설정 추가 시 메인 UI 수정을 막기 위한 OCP 실현). Riverpod의 `ConsumerWidget`을 상속하여 파라미터 전달 최소화.
-3. **3순위:** `_buildDrawer` ➡️ `lib/ui/widgets/app_drawer.dart`로 분리 (`ConsumerWidget` 적용).
-4. **유지:** `_buildArrowCalendar` 및 `_buildSwipeCalendar`는 메인 캘린더 상태(State)와 생명주기를 밀접하게 공유하므로 내부 메서드로 유지.
+### [v4.4.0] 동적 인포그래픽 스플래시 및 네이티브 연동
+> **목적:** 브라우저(HTML)에서 시각화 및 컨펌된 4종 동적 테마를 앱 내부 스플래시 화면과 스마트폰 홈 바탕화면에 실제 코드로 이식.
+1. **1순위 (스플래시 화면 구현):** 앱 구동 초기 진입 시 `splash_screen.dart`를 띄워 4종 애니메이션(우주 링 독자 회전, 영롱한 액체 그라데이션 등)을 Flutter 코드로 렌더링한 후 달력 화면으로 라우팅.
+2. **2순위 (Android 네이티브 위젯 구축):** Kotlin 및 XML 레이아웃을 작성하여 바탕화면 위젯 연동.
+3. **3순위 (iOS 네이티브 위젯 구축):** SwiftUI 코드를 작성하여 바탕화면 위젯 연동.
+4. **4순위 (`services.dart` 파일 분리):** 500줄 이상의 서비스 코드를 Storage, Notification, IcsService 등으로 단일 책임 원칙에 맞게 독립 분리.
 
 ---
 
@@ -178,4 +193,4 @@
 * **Riverpod 상태 불변성(Immutability) 검증:** `copyWith` 호출 시 기존 객체를 변형하지 않고 완전히 독립된 주소값(`identical` == false)을 반환하여 정상적인 UI 리빌드를 유발하는지 증명.
 
 ---
-*(End of Context - Version: v4.3.7)*
+*(End of Context - Version: v4.3.9)*

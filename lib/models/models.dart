@@ -1,5 +1,5 @@
-// v4.3.7
-// claude_models.dart
+// v4.3.9
+// gemini_models.dart
 // lib/models/models.dart
 
 import 'dart:typed_data';
@@ -15,6 +15,18 @@ enum CalendarNavMode {
 
   const CalendarNavMode({required this.label});
   final String label;
+}
+
+// 💡 [v4.3.9 신규] 스플래시 / 홈 위젯 인포그래픽 테마 4종
+enum WidgetTheme { flip, circle, classic, astronomical }
+
+extension WidgetThemeExt on WidgetTheme {
+  String get label => switch (this) {
+        WidgetTheme.flip => 'Flip (블루)',
+        WidgetTheme.circle => 'Circle (네온)',
+        WidgetTheme.classic => 'Classic (그린)',
+        WidgetTheme.astronomical => 'Astronomical (우주)',
+      };
 }
 
 enum AlarmMode { silent, soundOnly, vibrationOnly, soundAndVibration }
@@ -145,8 +157,6 @@ class RecurrenceRule {
     return result;
   }
 
-  // monthly/yearly: 지역변수 lastDay 필요 → switch expression 변환 시
-  // 즉시실행 클로저 ()() 가 필요해 오히려 가독성 저하 → 기존 switch-case 유지
   DateTime _advance(DateTime d) {
     switch (frequency) {
       case RecurrenceFrequency.daily:
@@ -177,6 +187,7 @@ class AppSettings {
   final String? customSoundPath;
   final AppTheme currentTheme;
   final CalendarNavMode calendarNavMode;
+  final WidgetTheme dynamicWidgetTheme; // 💡 [v4.3.9 신규]
 
   const AppSettings({
     this.showLunarCalendar = false,
@@ -190,6 +201,7 @@ class AppSettings {
     this.customSoundPath,
     this.currentTheme = AppTheme.samsung,
     this.calendarNavMode = CalendarNavMode.swipeHorizontal,
+    this.dynamicWidgetTheme = WidgetTheme.flip, // 💡 [v4.3.9 신규] 기본값
   });
 
   AlarmMode get effectiveMode {
@@ -221,6 +233,7 @@ class AppSettings {
       'customSoundPath': customSoundPath,
       'currentTheme': currentTheme.index,
       'calendarNavMode': calendarNavMode.index,
+      'dynamicWidgetTheme': dynamicWidgetTheme.index, // 💡 [v4.3.9 신규]
     };
   }
 
@@ -241,6 +254,8 @@ class AppSettings {
           AppTheme.values, j['currentTheme'] as int?, AppTheme.samsung.index),
       calendarNavMode:
           _safeEnum(CalendarNavMode.values, j['calendarNavMode'] as int?, 2),
+      dynamicWidgetTheme:
+          _safeEnum(WidgetTheme.values, j['dynamicWidgetTheme'] as int?, 0), // 💡 [v4.3.9 신규]
     );
   }
 
@@ -257,6 +272,7 @@ class AppSettings {
     bool clearCustom = false,
     AppTheme? currentTheme,
     CalendarNavMode? calendarNavMode,
+    WidgetTheme? dynamicWidgetTheme, // 💡 [v4.3.9 신규]
   }) {
     return AppSettings(
       showLunarCalendar: showLunarCalendar ?? this.showLunarCalendar,
@@ -271,6 +287,7 @@ class AppSettings {
           clearCustom ? null : (customSoundPath ?? this.customSoundPath),
       currentTheme: currentTheme ?? this.currentTheme,
       calendarNavMode: calendarNavMode ?? this.calendarNavMode,
+      dynamicWidgetTheme: dynamicWidgetTheme ?? this.dynamicWidgetTheme, // 💡 [v4.3.9 신규]
     );
   }
 }

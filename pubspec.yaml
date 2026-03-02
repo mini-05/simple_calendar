@@ -41,6 +41,7 @@ dependencies:
   # 홈 위젯 활성화
   home_widget: ^0.7.0
   intl: ^0.20.2
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:

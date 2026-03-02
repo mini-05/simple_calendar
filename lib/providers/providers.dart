@@ -1,15 +1,17 @@
-// v4.3.5
+// v4.4.0
 // gemini_providers.dart
 // lib/providers/providers.dart
 import 'dart:math' as math;
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb, compute;
+//import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, compute, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
-import '../services/services.dart';
-import '../services/slot_calculator.dart';
-import '../services/holidays.dart';
+import '../services/services.dart'; // 💡 이거 하나로 slot, holiday, home_widget 모두 해결됨!
 import '../theme/app_theme.dart';
+
+String _dateKey(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 List<CalendarEvent> _generateHolidaysIsolate(Map<String, dynamic> args) {
   final minDate = args['minDate'] as DateTime;
@@ -23,27 +25,20 @@ List<CalendarEvent> _expandRecurringIsolate(Map<String, dynamic> args) {
   final max = args['maxDate'] as DateTime;
   final result = <CalendarEvent>[];
 
-  String dateKey(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
   for (final e in events) {
     if (e.recurrenceRule == null) {
       result.add(e);
       continue;
     }
-    final dates = e.recurrenceRule!.expand(e.startDt, limit: 500);
+    // [v4.3.7 버그픽스] from/to Windowing 적용, limit:500 제거
+    // expand()가 min~max 범위만 반환하므로 후처리 필터 루프 불필요
+    final dates = e.recurrenceRule!.expand(e.startDt, from: min, to: max);
     for (final d in dates) {
-      if (d.isAfter(max)) {
-        break;
-      }
-      if (d.isBefore(min)) {
-        continue;
-      }
       final dur = e.endDt.difference(e.startDt);
       final instEnd = d.add(dur);
       result.add(e.copyWith(
-        date: dateKey(d),
-        endDate: dateKey(instEnd),
+        date: _dateKey(d),
+        endDate: _dateKey(instEnd),
         parentId: e.id,
         isRecurrenceInstance: true,
       ));
@@ -120,17 +115,23 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     final events = results[1] as List<CalendarEvent>;
 
     // 💡 [v4.3.5 변경] iOS가 아닌 모든 플랫폼(Android, Windows 등)은 삼성 테마 기본 적용
+    // [v4.3.5 변경] ios가 아닌 모든 플랫폼(Android, Windows 등)은 삼성 테마 기본 적용
     final isFirstRun = await AppSettingsStorage.isFirstRun();
     if (isFirstRun) {
+      // 👇 에러가 나던 Platform.isIOS 코드를 아래와 같이 안전하게 교체합니다!
       final defaultTheme =
-          (!kIsWeb && Platform.isIOS) ? AppTheme.apple : AppTheme.samsung;
+          (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+              ? AppTheme.apple
+              : AppTheme.samsung;
+
       settings = settings.copyWith(currentTheme: defaultTheme);
       await AppSettingsStorage.save(settings);
     }
 
     state = state.copyWith(settings: settings);
 
-    NotificationService.initNotifications();
+    // [v4.3.9 버그픽스] await 누락 → initNotifications 완료 전 알람 스케줄 시도 방지
+    await NotificationService.initNotifications();
 
     await _rebuildIndex(events, firstLoad: true);
   }
@@ -177,19 +178,7 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     final selKey = _dateKey(state.selectedDay ?? state.focusedDay);
     final selEvents = result.eventsByDate[selKey] ?? [];
 
-    double rowHeight = 56.0;
-    if (state.settings.currentTheme.themeData.showTextInside) {
-      int maxCnt = 0;
-      final fd = DateTime(state.focusedDay.year, state.focusedDay.month, 1);
-      final ld = DateTime(state.focusedDay.year, state.focusedDay.month + 1, 0);
-      for (var d = fd; !d.isAfter(ld); d = d.add(const Duration(days: 1))) {
-        final cnt = (result.eventsByDate[_dateKey(d)] ?? []).length;
-        if (cnt > maxCnt) {
-          maxCnt = cnt;
-        }
-      }
-      rowHeight = math.max(22.0 + maxCnt * 20.0 + 10.0, 56.0);
-    }
+    final rowHeight = _calcRowHeight(state.focusedDay, result.eventsByDate);
 
     state = state.copyWith(
       masterEvents: master,
@@ -200,10 +189,31 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
       cachedArrowRowHeight: rowHeight,
       holidayDates: holidayDates,
     );
+
+    // [v4.3.8] 홈 위젯 업데이트 (날짜 토큰 + 테마 토큰)
+    HomeWidgetService.updateTodayEvents(
+      master,
+      widgetTheme: state.settings.dynamicWidgetTheme,
+    );
   }
 
-  String _dateKey(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  // [v4.3.7] rowHeight 계산 헬퍼 추출 (중복 제거: _rebuildIndex + onArrowPageChanged)
+  double _calcRowHeight(
+      DateTime focused, Map<String, List<CalendarEvent>> byDate) {
+    if (!state.settings.currentTheme.themeData.showTextInside) {
+      return 56.0;
+    }
+    int maxCnt = 0;
+    final fd = DateTime(focused.year, focused.month, 1);
+    final ld = DateTime(focused.year, focused.month + 1, 0);
+    for (var d = fd; !d.isAfter(ld); d = d.add(const Duration(days: 1))) {
+      final cnt = (byDate[_dateKey(d)] ?? []).length;
+      if (cnt > maxCnt) {
+        maxCnt = cnt;
+      }
+    }
+    return math.max(22.0 + maxCnt * 20.0 + 10.0, 56.0);
+  }
 
   void _checkAndUpdateViewport(DateTime focused) {
     final diff = (focused.year * 12 + focused.month) -
@@ -224,17 +234,8 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     state = state.copyWith(focusedDay: focused);
     _checkAndUpdateViewport(focused);
     if (state.settings.currentTheme.themeData.showTextInside) {
-      int maxCnt = 0;
-      final fd = DateTime(focused.year, focused.month, 1);
-      final ld = DateTime(focused.year, focused.month + 1, 0);
-      for (var d = fd; !d.isAfter(ld); d = d.add(const Duration(days: 1))) {
-        final cnt = (state.eventsByDate[_dateKey(d)] ?? []).length;
-        if (cnt > maxCnt) {
-          maxCnt = cnt;
-        }
-      }
       state = state.copyWith(
-          cachedArrowRowHeight: math.max(22.0 + maxCnt * 20.0 + 10.0, 56.0));
+          cachedArrowRowHeight: _calcRowHeight(focused, state.eventsByDate));
     }
   }
 
@@ -343,7 +344,9 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
 
   Future<void> _rescheduleAllAlarms() async {
     for (final e in state.masterEvents) {
-      if (e.isHoliday || e.alarmDateTime == null) {
+      // [v4.3.9 버그픽스] isRecurrenceInstance 제외 — 인스턴스는 alarmDateTime 계산이
+      // parentId 기준이 아닌 자체 date 기준이어서 중복/오발 알람 유발
+      if (e.isHoliday || e.isRecurrenceInstance || e.alarmDateTime == null) {
         continue;
       }
       if (e.alarmDateTime!.isAfter(DateTime.now())) {

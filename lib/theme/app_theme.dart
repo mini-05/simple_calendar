@@ -1,5 +1,5 @@
-// v4.3.7
-// claude_app_theme.dart
+// v4.3.9
+// gemini_app_theme.dart
 // lib/theme/app_theme.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
 // 디자인 시스템 (Design System)
@@ -107,17 +107,52 @@ abstract class CalendarTheme {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// BarCardTheme — 삼성 / 네이버 공통 클래스 (v4.3.7 신규)
-//
-// 통합 근거:
-//   SamsungTheme.buildEventListItem == NaverTheme.buildEventListItem (구조 100% 동일)
-//   차이점은 색상 11개 + cellTextAlignment + markerRadius 뿐
-//
-// Gemini 원안 대비 Claude 수정:
-//   Gemini: appBarText / eventTitleText / eventSubText / sectionLabelText를
-//           _type == AppTheme.samsung 삼항 연산으로 결정 → OCP 위반
-//   Claude: 해당 4개를 named parameter로 받아 완전한 데이터 주입 방식 채택
-//           → 새 BarCard 계열 테마 추가 시 이 클래스 수정 불필요
+// DynamicWidgetConfig — 스플래시 & 위젯 인포그래픽 디자인 토큰 (v4.3.9 신규)
+// sealed class로 OCP 준수: 새 디자인 추가 = 새 subclass만 추가
+// ══════════════════════════════════════════════════════════════════
+
+sealed class DynamicWidgetConfig {
+  Color get accent;        // 포인트 색상
+  Color get bg;            // 위젯 배경색
+  Color get textPrimary;   // 날짜 숫자 색상
+  Color get textSecondary; // 요일/주차 색상
+  String get motionTag;    // 애니메이션 태그 식별자
+}
+
+class FlipWidgetConfig extends DynamicWidgetConfig {
+  @override Color get accent => const Color(0xFF2196F3);       // 블루
+  @override Color get bg => const Color(0xFFF2F2F2);           // 라이트 그레이
+  @override Color get textPrimary => const Color(0xFF222222);
+  @override Color get textSecondary => const Color(0xFF666666);
+  @override String get motionTag => 'flip';
+}
+
+class CircleWidgetConfig extends DynamicWidgetConfig {
+  @override Color get accent => const Color(0xFF00E5FF);       // 네온 시안
+  @override Color get bg => const Color(0xFF0a0a0a);           // 다크 (액체 그라데이션)
+  @override Color get textPrimary => Colors.white;
+  @override Color get textSecondary => const Color(0xFFB0BEC5);
+  @override String get motionTag => 'circle';
+}
+
+class ClassicWidgetConfig extends DynamicWidgetConfig {
+  @override Color get accent => const Color(0xFF03C75A);       // 그린
+  @override Color get bg => const Color(0xFF1a1a2e);           // 깊은 배경 (4링)
+  @override Color get textPrimary => Colors.white;
+  @override Color get textSecondary => const Color(0xFFcccccc);
+  @override String get motionTag => 'classic';
+}
+
+class AstronomicalWidgetConfig extends DynamicWidgetConfig {
+  @override Color get accent => const Color(0xFFFA233B);       // 레드 포인트
+  @override Color get bg => const Color(0xFF08081a);           // 깊은 우주
+  @override Color get textPrimary => Colors.white;
+  @override Color get textSecondary => const Color(0xFFADB5D0);
+  @override String get motionTag => 'astronomical';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// BarCardTheme — 삼성 / 네이버 공통 클래스
 // ══════════════════════════════════════════════════════════════════
 
 class BarCardTheme extends CalendarTheme {
@@ -238,7 +273,6 @@ class AppleTheme extends CalendarTheme {
   @override Color get iconBg => const Color(0xFFFFF0F1);
   @override Color get iconColor => const Color(0xFFFA233B);
   @override Color get sectionLabelText => const Color(0xFF1A1A2E);
-  // showTextInside = false → Dot 표시
 
   @override
   Widget buildEventListItem({
@@ -374,7 +408,6 @@ class TodoSkyTheme extends CalendarTheme {
   }
 }
 
-/// darkNeon / classicBlue 공통 카드 테마
 class DefaultCardTheme extends CalendarTheme {
   final AppTheme _type;
   final String _name, _emoji;
@@ -470,8 +503,6 @@ class DefaultCardTheme extends CalendarTheme {
 
 // ══════════════════════════════════════════════════════════════════
 // AppThemeExt — AppTheme enum → CalendarTheme 인스턴스 변환
-// [v4.3.7] switch { case: return } → Dart 3.0 switch expression
-// Samsung·Naver는 BarCardTheme으로 통합, named param으로 OCP 완성
 // ══════════════════════════════════════════════════════════════════
 
 extension AppThemeExt on AppTheme {
@@ -480,33 +511,32 @@ extension AppThemeExt on AppTheme {
             AppTheme.samsung,
             '삼성 캘린더',
             '📱',
-            const Color(0xFFF2F2F2), // scaffoldBg (= appBarBg)
-            const Color(0xFF2196F3), // primaryAccent
-            const Color(0xFFBBDEF0), // secondaryAccent
-            Colors.white, // cardBg
-            const Color(0xFFE3F2FD), // iconBg
+            const Color(0xFFF2F2F2),
+            const Color(0xFF2196F3),
+            const Color(0xFFBBDEF0),
+            Colors.white,
+            const Color(0xFFE3F2FD),
             appBarText: const Color(0xFF222222),
             eventTitleText: const Color(0xFF222222),
             eventSubText: const Color(0xFF666666),
             sectionLabelText: const Color(0xFF444444),
             cellTextAlignment: Alignment.topLeft,
-            markerRadius: 12.0, // 원형 마커
+            markerRadius: 12.0,
           ),
         AppTheme.naver => BarCardTheme(
             AppTheme.naver,
             '네이버 캘린더',
             '🇳',
-            Colors.white, // scaffoldBg (= appBarBg)
-            const Color(0xFF03C75A), // primaryAccent
-            const Color(0xFFD4F5E1), // secondaryAccent
-            const Color(0xFFF9F9F9), // cardBg
-            const Color(0xFFE6F9ED), // iconBg
+            Colors.white,
+            const Color(0xFF03C75A),
+            const Color(0xFFD4F5E1),
+            const Color(0xFFF9F9F9),
+            const Color(0xFFE6F9ED),
             appBarText: Colors.black,
             eventTitleText: Colors.black87,
             eventSubText: Colors.black54,
             sectionLabelText: Colors.black,
-            // cellTextAlignment: 기본값 Alignment.center
-            markerRadius: 3.0, // 라운드 사각 마커
+            markerRadius: 3.0,
           ),
         AppTheme.apple => AppleTheme(),
         AppTheme.todoSky => TodoSkyTheme(),
@@ -546,5 +576,13 @@ extension AppThemeExt on AppTheme {
             const Color(0xFFEEF4FF),
             const Color(0xFF4A90D9),
             const Color(0xFF1A1A2E)),
+      };
+
+  // 💡 [v4.3.9] WidgetTheme → DynamicWidgetConfig 변환 (OCP 준수)
+  static DynamicWidgetConfig widgetConfig(WidgetTheme t) => switch (t) {
+        WidgetTheme.flip => FlipWidgetConfig(),
+        WidgetTheme.circle => CircleWidgetConfig(),
+        WidgetTheme.classic => ClassicWidgetConfig(),
+        WidgetTheme.astronomical => AstronomicalWidgetConfig(),
       };
 }
