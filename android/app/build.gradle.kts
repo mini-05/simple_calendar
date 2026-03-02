@@ -24,7 +24,7 @@ android {
         applicationId = "com.example.simple_calendar"
         
         // 🛡️ [수정됨] 보안 모듈(EncryptedSharedPreferences) 작동을 위해 23으로 고정합니다.
-        minSdk = 23 
+        minSdk = flutter.minSdkVersion 
         
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

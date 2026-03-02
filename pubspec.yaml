@@ -1,8 +1,8 @@
-# v4.3.6
+# v4.4.0
 name: simple_calendar
 description: My Calendar App — SoC 리팩터링 + Riverpod + 반복 일정
 publish_to: none
-version: 4.3.6+1
+version: 4.4.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -47,6 +47,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  # 👇 앱 아이콘 생성 패키지 추가
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
+
+# 👇 앱 아이콘 생성 설정 추가 (맨 아래에 위치)
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/2nd_icon.png" # 이 경로에 아이콘 이미지를 넣어주세요!
+  min_sdk_size: 21
