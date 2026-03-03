@@ -1,14 +1,15 @@
-// v4.3.3
-// gemini_main.dart
+// v4.4.1
+// claude_main.dart
 // lib/main.dart
 // 앱의 진입점 (Entry Point)
+// [v4.4.1] SplashScreen 연결
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'providers/providers.dart';
 import 'services/services.dart';
-import 'ui/calendar_screen.dart';
-import 'theme/app_theme.dart'; // 💡 [에러 해결] AppTheme 확장을 사용하기 위한 필수 임포트
+import 'ui/splash_screen.dart'; // [v4.4.1] SplashScreen 연결 (CalendarScreen은 splash에서 라우팅)
+import 'theme/app_theme.dart';
 
 /* // =================================================================
 // [Gemini 백업: Windows/Web 데스크톱 DB 초기화 로직]
@@ -54,7 +55,7 @@ class MyCalendarApp extends ConsumerWidget {
         primaryColor: th.primaryAccent,
         brightness: th.isDark ? Brightness.dark : Brightness.light,
       ),
-      home: const CalendarScreen(),
+      home: const SplashScreen(), // [v4.4.1] 스플래시 → CalendarScreen 자동 전환
     );
   }
 }
