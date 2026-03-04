@@ -1,6 +1,7 @@
-// v4.1.1
+// v4.4.1
 // gemini_holidays.dart
 // lib/services/holidays.dart
+// [v4.4.1] 대체공휴일 명칭 통일 → '대체공휴일'
 import 'package:lunar/lunar.dart';
 import '../models/models.dart';
 import 'date_formatter.dart';
@@ -148,15 +149,13 @@ class HolidayUtil {
       final dt = h.startDt;
       if (dt.year != year) continue;
       if (dt.weekday == DateTime.sunday) {
-        addAlt(dt.add(const Duration(days: 1)), '${h.title} 대체공휴일');
+        addAlt(dt.add(const Duration(days: 1)), '대체공휴일');
       }
     }
 
     // 2. 명절 연휴 대체 로직
-    _processHolidayGroup(
-        current, seollalNames, year, '설날 대체공휴일', result, addAlt);
-    _processHolidayGroup(
-        current, chuseokNames, year, '추석 대체공휴일', result, addAlt);
+    _processHolidayGroup(current, seollalNames, year, '대체공휴일', result, addAlt);
+    _processHolidayGroup(current, chuseokNames, year, '대체공휴일', result, addAlt);
 
     return result;
   }
