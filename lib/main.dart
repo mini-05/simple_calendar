@@ -3,12 +3,14 @@
 // lib/main.dart
 // 앱의 진입점 (Entry Point)
 // [v4.4.1] SplashScreen 연결
+// [v4.4.1] 웹 환경 NotificationService 초기화 차단 (flutter run -d chrome 크래시 방지)
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'providers/providers.dart';
 import 'services/services.dart';
-import 'ui/splash_screen.dart'; // [v4.4.1] SplashScreen 연결 (CalendarScreen은 splash에서 라우팅)
+import 'ui/splash_screen.dart';
 import 'theme/app_theme.dart';
 
 /* // =================================================================
@@ -17,7 +19,6 @@ import 'theme/app_theme.dart';
 // 아래 코드를 runApp() 실행 전에 주석 해제하여 사용하세요.
 // =================================================================
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
@@ -34,7 +35,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ko_KR', null);
 
-  await NotificationService.initMinimal();
+  // 웹에서는 flutter_local_notifications / timezone 초기화 불가 → 건너뜀
+  if (!kIsWeb) {
+    await NotificationService.initMinimal();
+  }
 
   runApp(const ProviderScope(child: MyCalendarApp()));
 }

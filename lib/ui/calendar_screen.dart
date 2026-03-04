@@ -1,6 +1,7 @@
-// v4.4.0
+// v4.4.1
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
+// [v4.4.1] 슬라이드 모드 오늘 버튼 animateToPage 적용 (스르륵 모션)
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,11 +56,21 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   void _jumpAndSync(
       DateTime targetDate, CalendarNotifier notifier, CalendarState st) {
     notifier.jumpToDate(targetDate);
-    // 스와이프 모드일 경우 즉시 해당 페이지로 화면 점프
     if (st.settings.calendarNavMode != CalendarNavMode.arrow) {
       final targetPage = _monthToPage(targetDate);
       if (_pageCtrl.hasClients && _pageCtrl.page?.round() != targetPage) {
-        _pageCtrl.jumpToPage(targetPage);
+        final currentPage = _pageCtrl.page?.round() ?? targetPage;
+        final distance = (currentPage - targetPage).abs();
+        // 거리가 멀면 근처로 먼저 점프 후 스르륵 (중간 페이지 렌더링 방지)
+        if (distance > 6) {
+          final isForward = targetPage > currentPage;
+          _pageCtrl.jumpToPage(targetPage + (isForward ? -1 : 1));
+        }
+        _pageCtrl.animateToPage(
+          targetPage,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeInOutCubic,
+        );
       }
     }
   }
