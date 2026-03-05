@@ -8,8 +8,8 @@
 
     <TextView
         android:id="@+id/widget_title"
-        android:layout_width="wrap_context"
-        android:layout_height="wrap_context"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:text="오늘의 일정"
         android:textColor="#FFFFFF"
         android:textSize="16sp"
@@ -17,8 +17,8 @@
 
     <TextView
         android:id="@+id/widget_description"
-        android:layout_width="wrap_context"
-        android:layout_height="wrap_context"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="위젯을 터치하여 앱을 실행하세요"
         android:textColor="#CCCCCC"
