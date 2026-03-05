@@ -57,5 +57,5 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/icon/2nd_icon.png" # 이 경로에 아이콘 이미지를 넣어주세요!
+  image_path: "assets/icon/calendar_image2.png" # 이 경로에 아이콘 이미지를 넣어주세요!
   min_sdk_size: 21
