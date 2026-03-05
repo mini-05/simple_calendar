@@ -1,4 +1,4 @@
-# v4.3.7
+# v4.4.2
 # build_apk.yml
 # .github/workflows/build_apk.yml
 name: Build Flutter APK and AAB
@@ -8,7 +8,7 @@ on:
     branches: [ "main", "master" ]
 
 permissions:
-  contents: read
+  contents: write  # [v4.4.2] upload-artifact@v4 업로드 권한
 
 jobs:
   build:
@@ -16,13 +16,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # 직전 커밋과 비교하기 위해 2개 필요
+          fetch-depth: 2
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
+
+      - name: Set up Android NDK
+        uses: android-actions/setup-android@v3
+        with:
+          ndk-version: '25.1.8937393'
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -54,7 +59,6 @@ jobs:
 
       - name: Extract version from changed dart files
         run: |
-          # 직전 커밋과 현재 커밋 사이 변경된 lib/*.dart 파일 목록
           CHANGED=$(git diff --name-only HEAD~1 HEAD | grep "^lib/.*\.dart$" || true)
           echo "변경된 dart 파일: ${CHANGED:-없음}"
 
@@ -77,19 +81,32 @@ jobs:
 
           echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
 
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=keystore.jks
+          EOF
+
       - name: Build APK
         run: flutter build apk --release --target-platform android-arm64
 
       - name: Build AppBundle
         run: flutter build appbundle --release
 
-      # 💡 [추가] 업로드 전 파일 이름을 My_Calendar_v버전 형식으로 변경
       - name: Rename APK and AAB
         run: |
-          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/My_Calendar_v${{ env.APP_VERSION }}.apk
-          mv build/app/outputs/bundle/release/app-release.aab build/app/outputs/bundle/release/My_Calendar_v${{ env.APP_VERSION }}.aab
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/My_Calendar_v${{ env.APP_VERSION }}.apk
+          mv build/app/outputs/bundle/release/app-release.aab \
+             build/app/outputs/bundle/release/My_Calendar_v${{ env.APP_VERSION }}.aab
 
-      # 💡 [수정] Artifact 이름과 업로드 경로 변경
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -97,3 +114,7 @@ jobs:
           path: |
             build/app/outputs/flutter-apk/My_Calendar_v${{ env.APP_VERSION }}.apk
             build/app/outputs/bundle/release/My_Calendar_v${{ env.APP_VERSION }}.aab
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f android/app/keystore.jks android/key.properties
