@@ -58,6 +58,7 @@ jobs:
         run: flutter pub get
 
       - name: Extract version from changed dart files
+        id: version
         run: |
           CHANGED=$(git diff --name-only HEAD~1 HEAD | grep "^lib/.*\.dart$" || true)
           echo "변경된 dart 파일: ${CHANGED:-없음}"
@@ -80,6 +81,7 @@ jobs:
           fi
 
           echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
+          echo "value=$APP_VERSION" >> $GITHUB_OUTPUT
 
       - name: Decode Keystore
         run: |
@@ -103,17 +105,17 @@ jobs:
       - name: Rename APK and AAB
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/My_Calendar_v${{ env.APP_VERSION }}.apk
+             build/app/outputs/flutter-apk/My_Calendar_v${APP_VERSION}.apk
           mv build/app/outputs/bundle/release/app-release.aab \
-             build/app/outputs/bundle/release/My_Calendar_v${{ env.APP_VERSION }}.aab
+             build/app/outputs/bundle/release/My_Calendar_v${APP_VERSION}.aab
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: My_Calendar_v${{ env.APP_VERSION }}
+          name: My_Calendar_v${{ steps.version.outputs.value }}
           path: |
-            build/app/outputs/flutter-apk/My_Calendar_v${{ env.APP_VERSION }}.apk
-            build/app/outputs/bundle/release/My_Calendar_v${{ env.APP_VERSION }}.aab
+            build/app/outputs/flutter-apk/My_Calendar_v${{ steps.version.outputs.value }}.apk
+            build/app/outputs/bundle/release/My_Calendar_v${{ steps.version.outputs.value }}.aab
 
       - name: Clean up keystore
         if: always()
