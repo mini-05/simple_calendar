@@ -1,4 +1,4 @@
-// v4.3.9
+// v4.4.2
 // claude_settings_sheet.dart
 // lib/ui/widgets/settings_sheet.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
@@ -88,6 +88,17 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                           fontWeight: FontWeight.bold)))
             ]),
             const SizedBox(height: 10),
+            _sectionTitle('🖼️ 화면 설정'),
+            _switchTile(
+              // 👈 _toggle을 _switchTile로 이름만 변경하여 UI 호출!
+              icon: Icons.smart_display_outlined, // 👈 필수 파라미터인 아이콘 추가
+              label: '스플래시 화면 표시',
+              subtitle: '앱 실행 시 잠깐 나타나는 인트로 화면',
+              value: _s.showSplash,
+              onChanged: (v) => _update(_s.copyWith(
+                  showSplash: v)), // 👈 _update는 이미 완벽하게 제 역할을 하고 있음!
+            ),
+            const SizedBox(height: 8),
             _sectionTitle('📅 달력 설정'),
             _switchTile(
                 icon: Icons.calendar_today_outlined,

@@ -1,10 +1,8 @@
-// v4.4.1
-// claude_splash_screen.dart
+// v4.4.2
+// gemini_splash_screen.dart
 // lib/ui/splash_screen.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
-// [v4.4.1 버그수정]
-// - Bug1: CircleSplash _pulseCtrl dead code 제거 (_GlowPulse 내부 자체 ctrl 사용)
-// - Bug2: CircleSplash 유리 오버레이 BackdropFilter 추가 (blur 없이 색상만 있던 문제)
+// [v4.4.0] 앱 스플래시 화면 4종 애니메이션 완벽 구현 (Claude 리뷰 반영 픽스)
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -61,7 +59,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(_splashDuration, _goToCalendar);
+    final showSplash = ref.read(settingsProvider).showSplash;
+    if (showSplash) {
+      Future.delayed(_splashDuration, _goToCalendar);
+    } else {
+      // [v4.4.2] 스플래시 OFF: 다음 프레임에서 즉시 이동
+      WidgetsBinding.instance.addPostFrameCallback((_) => _goToCalendar());
+    }
   }
 
   void _goToCalendar() {
@@ -78,8 +82,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ref.watch(settingsProvider).dynamicWidgetTheme;
-    return switch (theme) {
+    final settings = ref.watch(settingsProvider);
+    if (!settings.showSplash) {
+      return const Scaffold(backgroundColor: Colors.transparent);
+    }
+    return switch (settings.dynamicWidgetTheme) {
       WidgetTheme.flip => const FlipSplash(),
       WidgetTheme.circle => const CircleSplash(),
       WidgetTheme.classic => const ClassicSplash(),
@@ -276,7 +283,7 @@ class CircleSplash extends StatefulWidget {
 class _CircleSplashState extends State<CircleSplash>
     with TickerProviderStateMixin {
   late final AnimationController _ctrl;
-  // [v4.4.1 Bug1 수정] _pulseCtrl 제거 — 펄스는 _GlowPulse 위젯 내부 ctrl이 전담
+  late final AnimationController _pulseCtrl;
 
   @override
   void initState() {
@@ -285,11 +292,17 @@ class _CircleSplashState extends State<CircleSplash>
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat(reverse: true);
+
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -318,18 +331,14 @@ class _CircleSplashState extends State<CircleSplash>
           right: 32,
           top: 80,
           bottom: 80,
-          // [v4.4.1 Bug2 수정] BackdropFilter 추가 — 기존은 blur 없이 색상 패널만 존재
           child: ClipRRect(
             borderRadius: BorderRadius.circular(40),
-            child: BackdropFilter(
-              filter: _noBlurOnWeb(),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .08),
-                  borderRadius: BorderRadius.circular(40),
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: .18), width: 1),
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(40),
+                border: Border.all(
+                    color: Colors.white.withValues(alpha: .18), width: 1),
               ),
             ),
           ),
@@ -337,6 +346,7 @@ class _CircleSplashState extends State<CircleSplash>
         Center(
           child: _GlowPulse(
             color: Colors.white,
+            ctrl: _pulseCtrl,
             child: _dateColumn(now),
           ),
         ),
@@ -730,6 +740,7 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
         Center(
           child: _GlowPulse(
             color: const Color(0xFFFA233B),
+            ctrl: _pulseCtrl,
             child: _dateColumn(now),
           ),
         ),
@@ -897,49 +908,25 @@ class _StarsPainter extends CustomPainter {
 // 공통 유틸
 // ════════════════════════════════════════════════════════════════
 
-// [v4.4.1 Bug1 수정] StatelessWidget → StatefulWidget 변환
-// 기존: 외부 ctrl을 주입받아 사용 (CircleSplash._pulseCtrl dead code 유발)
-// 수정: 자체 AnimationController를 보유하여 독립적으로 펄스 구동
-class _GlowPulse extends StatefulWidget {
+class _GlowPulse extends StatelessWidget {
   final Widget child;
   final Color color;
+  final AnimationController ctrl;
 
-  const _GlowPulse({required this.child, required this.color});
-
-  @override
-  State<_GlowPulse> createState() => _GlowPulseState();
-}
-
-class _GlowPulseState extends State<_GlowPulse>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  const _GlowPulse(
+      {required this.child, required this.color, required this.ctrl});
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: _ctrl,
+        animation: ctrl,
         builder: (_, child) {
-          final v = _ctrl.value;
+          final v = ctrl.value;
           return Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: widget.color.withValues(alpha: .15 + .25 * v),
+                  color: color.withValues(alpha: .15 + .25 * v),
                   blurRadius: 40 + 40 * v,
                   spreadRadius: 0,
                 ),
@@ -948,7 +935,7 @@ class _GlowPulseState extends State<_GlowPulse>
             child: child,
           );
         },
-        child: widget.child,
+        child: child,
       );
 }
 

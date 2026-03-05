@@ -1,5 +1,5 @@
-// v4.3.9
-// gemini_models.dart
+// v4.4.2
+// claude_models.dart
 // lib/models/models.dart
 
 import 'dart:typed_data';
@@ -49,6 +49,11 @@ enum NotificationSound {
   chime(label: '맑은 종소리', fileName: 'chime'),
   bell(label: '경쾌한 벨소리', fileName: 'bell'),
   bird(label: '새소리', fileName: 'bird'),
+  waterDrop(label: '물방울', fileName: 'water_drop'),
+  rain(label: '빗소리', fileName: 'rain'),
+  pianoMelody(label: '피아노 멜로디', fileName: 'piano_melody'),
+  wind(label: '바람 소리', fileName: 'wind'),
+  wave(label: '파도 소리', fileName: 'wave'),
   custom(label: '🎵 내 휴대폰 음악', fileName: 'custom');
 
   const NotificationSound({required this.label, required this.fileName});
@@ -60,7 +65,31 @@ enum VibrationPattern {
   defaultPulse(label: '기본 진동', pattern: [0, 400, 200, 400]),
   heartbeat(label: '심장 박동', pattern: [0, 150, 150, 150, 800, 150, 150, 150]),
   crescendo(label: '크레센도', pattern: [0, 400, 300, 200, 150, 100, 100, 50, 50]),
-  longPulse(label: '길게 한 번', pattern: [0, 800]);
+  longPulse(label: '길게 한 번', pattern: [0, 800]),
+  doublePulse(label: '짧게 두 번', pattern: [0, 150, 100, 150]),
+  longThenDouble(label: '길게 후 짧게 두 번', pattern: [0, 600, 150, 150, 100, 150]),
+  escalating(label: '점점 강해짐', pattern: [0, 100, 100, 200, 100, 300, 100, 400]),
+  sos(label: 'SOS', pattern: [
+    0,
+    150,
+    100,
+    150,
+    100,
+    150,
+    200,
+    400,
+    100,
+    400,
+    100,
+    400,
+    200,
+    150,
+    100,
+    150,
+    100,
+    150
+  ]),
+  siren(label: '사이렌', pattern: [0, 500, 150, 300, 150, 500, 150, 300]);
 
   const VibrationPattern({required this.label, required this.pattern});
   final String label;
@@ -188,6 +217,7 @@ class AppSettings {
   final AppTheme currentTheme;
   final CalendarNavMode calendarNavMode;
   final WidgetTheme dynamicWidgetTheme; // 💡 [v4.3.9 신규]
+  final bool showSplash; // [v4.4.2] 스플래시 ON/OFF
 
   const AppSettings({
     this.showLunarCalendar = false,
@@ -202,6 +232,7 @@ class AppSettings {
     this.currentTheme = AppTheme.samsung,
     this.calendarNavMode = CalendarNavMode.swipeHorizontal,
     this.dynamicWidgetTheme = WidgetTheme.flip, // 💡 [v4.3.9 신규] 기본값
+    this.showSplash = true, // [v4.4.2] 기본값: 켜짐
   });
 
   AlarmMode get effectiveMode {
@@ -234,6 +265,7 @@ class AppSettings {
       'currentTheme': currentTheme.index,
       'calendarNavMode': calendarNavMode.index,
       'dynamicWidgetTheme': dynamicWidgetTheme.index, // 💡 [v4.3.9 신규]
+      'showSplash': showSplash, // [v4.4.2]
     };
   }
 
@@ -256,6 +288,7 @@ class AppSettings {
           _safeEnum(CalendarNavMode.values, j['calendarNavMode'] as int?, 2),
       dynamicWidgetTheme: _safeEnum(WidgetTheme.values,
           j['dynamicWidgetTheme'] as int?, 0), // 💡 [v4.3.9 신규]
+      showSplash: j['showSplash'] ?? true, // [v4.4.2] 없으면 기본값 true
     );
   }
 
@@ -273,6 +306,7 @@ class AppSettings {
     AppTheme? currentTheme,
     CalendarNavMode? calendarNavMode,
     WidgetTheme? dynamicWidgetTheme, // 💡 [v4.3.9 신규]
+    bool? showSplash, // [v4.4.2]
   }) {
     return AppSettings(
       showLunarCalendar: showLunarCalendar ?? this.showLunarCalendar,
@@ -289,6 +323,7 @@ class AppSettings {
       calendarNavMode: calendarNavMode ?? this.calendarNavMode,
       dynamicWidgetTheme:
           dynamicWidgetTheme ?? this.dynamicWidgetTheme, // 💡 [v4.3.9 신규]
+      showSplash: showSplash ?? this.showSplash, // [v4.4.2]
     );
   }
 }
@@ -352,26 +387,18 @@ class CalendarEvent {
   }
 
   DateTime? get alarmDateTime {
-    if (alarmMinutes == AlarmMinutes.none) {
-      return null;
-    }
+    if (alarmMinutes == AlarmMinutes.none) return null;
     if (isAllDay) {
       return DateTime(startDt.year, startDt.month, startDt.day, 9, 0)
           .subtract(Duration(minutes: alarmMinutes.minutes));
     }
-    if (startTime == null) {
-      return null;
-    }
+    if (startTime == null) return null;
     // ICS 외부 데이터 크래시 방지: length 체크 필수 → List destructuring 미적용
     final parts = startTime!.split(':');
-    if (parts.length != 2) {
-      return null;
-    }
+    if (parts.length != 2) return null;
     final h = int.tryParse(parts[0]);
     final m = int.tryParse(parts[1]);
-    if (h == null || m == null) {
-      return null;
-    }
+    if (h == null || m == null) return null;
     return DateTime(startDt.year, startDt.month, startDt.day, h, m)
         .subtract(Duration(minutes: alarmMinutes.minutes));
   }
