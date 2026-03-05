@@ -254,8 +254,8 @@ class AppSettings {
           AppTheme.values, j['currentTheme'] as int?, AppTheme.samsung.index),
       calendarNavMode:
           _safeEnum(CalendarNavMode.values, j['calendarNavMode'] as int?, 2),
-      dynamicWidgetTheme:
-          _safeEnum(WidgetTheme.values, j['dynamicWidgetTheme'] as int?, 0), // 💡 [v4.3.9 신규]
+      dynamicWidgetTheme: _safeEnum(WidgetTheme.values,
+          j['dynamicWidgetTheme'] as int?, 0), // 💡 [v4.3.9 신규]
     );
   }
 
@@ -287,7 +287,8 @@ class AppSettings {
           clearCustom ? null : (customSoundPath ?? this.customSoundPath),
       currentTheme: currentTheme ?? this.currentTheme,
       calendarNavMode: calendarNavMode ?? this.calendarNavMode,
-      dynamicWidgetTheme: dynamicWidgetTheme ?? this.dynamicWidgetTheme, // 💡 [v4.3.9 신규]
+      dynamicWidgetTheme:
+          dynamicWidgetTheme ?? this.dynamicWidgetTheme, // 💡 [v4.3.9 신규]
     );
   }
 }
