@@ -23,4 +23,5 @@
         android:text="위젯을 터치하여 앱을 실행하세요"
         android:textColor="#CCCCCC"
         android:textSize="14sp" />
+
 </LinearLayout>

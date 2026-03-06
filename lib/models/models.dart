@@ -1,5 +1,4 @@
 // v4.4.2
-// claude_models.dart
 // lib/models/models.dart
 
 import 'dart:typed_data';

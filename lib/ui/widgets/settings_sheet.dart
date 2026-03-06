@@ -90,13 +90,11 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
             const SizedBox(height: 10),
             _sectionTitle('🖼️ 화면 설정'),
             _switchTile(
-              // 👈 _toggle을 _switchTile로 이름만 변경하여 UI 호출!
-              icon: Icons.smart_display_outlined, // 👈 필수 파라미터인 아이콘 추가
+              icon: Icons.play_circle_outline,
               label: '스플래시 화면 표시',
               subtitle: '앱 실행 시 잠깐 나타나는 인트로 화면',
               value: _s.showSplash,
-              onChanged: (v) => _update(_s.copyWith(
-                  showSplash: v)), // 👈 _update는 이미 완벽하게 제 역할을 하고 있음!
+              onChanged: (v) => _update(_s.copyWith(showSplash: v)),
             ),
             const SizedBox(height: 8),
             _sectionTitle('📅 달력 설정'),
