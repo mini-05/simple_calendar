@@ -76,7 +76,8 @@
 
 ### [UI/UX 시스템 확립기]
 * **v4.0.0:** 하단 슬라이딩 패널, 6테마, 3가지 넘기기 모드.
-* **v4.1.0:** * 상태 관리 엔진 Riverpod 2.x 전면 이관 (`StateNotifierProvider`).
+* **v4.1.0:**
+  * 상태 관리 엔진 Riverpod 2.x 전면 이관 (`StateNotifierProvider`).
   * 사이드 드로어(Drawer) 메뉴 신설하여 설정, 테마, 백업 기능을 통합.
   * 달력 렌더링 최적화: `holidayDates`를 `Set<String>`으로 만들어 달력 그릴 때 O(1) 속도로 공휴일 색상 반영.
   * `home_widget` 패키지 연동으로 스마트폰 홈 화면 오늘 일정 위젯 추가.
@@ -149,22 +150,36 @@
   * **God Object 해체 완료:** `calendar_screen.dart`에 남아있던 `_AppSettingsSheet`와 `_buildDrawer`를 각각 `settings_sheet.dart` 및 `app_drawer.dart`(`ConsumerStatefulWidget`)로 분리. 메인 UI 코드를 800줄로 최적화.
   * **Windowing 성능 버그 픽스 (`providers.dart`):** `RecurrenceRule.expand` 호출 시 `from`/`to` 파라미터를 누락해 전체 생성 후 필터링하던 비효율 로직을 찾아내 수정. 약 25개월 가시 범위만 생성하도록 최적화.
   * **동적 인포그래픽 위젯 뼈대 구축:** `models.dart`에 `WidgetTheme` enum 신설, `app_theme.dart`에 `DynamicWidgetConfig` sealed class 추가. `home_widget_service.dart`에 네이티브 통신 파이프라인(날짜/디자인 토큰) 개통.
-* **v4.3.9 (현재 버전):**
+* **v4.3.9:**
   * **디자인 시스템 완성:** 우주 테마(Astronomical)를 추가하여 총 4종의 동적 위젯/스플래시 디자인 토큰 구축. 주차 표기법을 직관적 형태(예: '10주차')로 통합.
   * **알람 시스템 치명적 버그 수정 (`providers.dart`):**
     * `NotificationService.initNotifications()`에 `await`를 누락하여 타임존 초기화 전 스케줄링이 발생하던 잠재적 버그 수정.
     * `_rescheduleAllAlarms` 루프에서 반복 일정 인스턴스(`isRecurrenceInstance == true`)가 중복 스케줄링되어 알람이 오작동하는 문제 원천 차단.
   * **UX 극강 개선 (`calendar_screen.dart`):** `AnimatedPositioned` 슬라이드 패널을 `_PanelDragWrapper`라는 실시간 드래그 반응형 전용 위젯으로 교체. 빈 영역 쓸어내리기 제스처 감지 및 속도 기반 스냅(`easeInOutCubic`) 적용.
 
+### [스플래시 디자인 및 최신 SDK 마이그레이션기]
+* **v4.4.0:**
+  * **동적 인포그래픽 스플래시:** 4종의 감성적인 스플래시 화면(플립, 액체 그라데이션, 우주 링 등) 구현 및 앱 진입점(`splash_screen.dart`) 연결.
+  * **웹 호환성 패치:** `dart:io`와 플러그인(ICS, 알림 등)이 웹 환경(Chrome)에서 크래시를 일으키는 현상을 방지하기 위해 **조건부 임포트(Conditional Import)** 기법(`services.dart`, `ics_service_stub.dart` 등) 전면 도입.
+* **v4.4.1:**
+  * **UX 개선:** 달력 스와이프 모드에서 '오늘' 버튼 클릭 시 끊김 없이 부드럽게 이동하는 `animateToPage` 스르륵 모션 적용. 대체공휴일 명칭 '대체공휴일'로 통일.
+  * **프레임 드랍 버그 픽스:** 스플래시 화면에서 달력으로 넘어가는 애니메이션 도중 알림 권한(`Permission`) 시스템 팝업이 호출되어 UI 렌더링 스레드가 멈추는 현상을 `addPostFrameCallback`과 `Future.delayed`로 지연시켜 완벽 해결.
+* **v4.4.2 (현재 버전):**
+  * **상태 관리 대공사:** Riverpod 3.x 마이그레이션 (`StateNotifier`, `StateNotifierProvider` ➡️ `Notifier`, `NotifierProvider`로 교체).
+  * **보안 및 프라이버시 강화:** `screen_protector` 패키지 연동. 설정(`settings_sheet.dart`)에 '화면 캡처 방지' 토글 스위치를 추가하여 사용자 선택형 네이티브 캡처/녹화 차단 기능 구현 (`models.dart` 및 앱 초기화 로직에 반영).
+  * **최신 패키지 대응:** `flutter_local_notifications` 19.x 업데이트(`uiLocalNotificationDateInterpretation` 제거 대응) 및 `share_plus` 12.x 마이그레이션(`SharePlus.instance.share` 적용).
+  * **CI/CD 파이프라인 (GitHub Actions) 정상화:**
+    * `build_apk.yml`에서 구버전 플러터(3.27.4) 고정으로 인한 Dart SDK 버전 충돌(>=3.7.0 요구) 에러를 최신 `stable` 채널 자동화로 해결.
+    * 안드로이드 `desugar_jdk_libs` 버전을 `2.1.5`로 고정 업데이트하여 알림 패키지 충돌 해결.
+    * GitHub Secrets 기반의 Keystore가 없을 경우 자동으로 디버그(Debug) 서명으로 Fallback하여 성공적으로 빌드되도록 안전장치 구축 완료.
+
 ---
 
 ## 🎯 4. 향후 마일스톤 (Upcoming Milestones)
-### [v4.4.0] 동적 인포그래픽 스플래시 및 네이티브 연동
-> **목적:** 브라우저(HTML)에서 시각화 및 컨펌된 4종 동적 테마를 앱 내부 스플래시 화면과 스마트폰 홈 바탕화면에 실제 코드로 이식.
-1. **1순위 (스플래시 화면 구현):** 앱 구동 초기 진입 시 `splash_screen.dart`를 띄워 4종 애니메이션(우주 링 독자 회전, 영롱한 액체 그라데이션 등)을 Flutter 코드로 렌더링한 후 달력 화면으로 라우팅.
-2. **2순위 (Android 네이티브 위젯 구축):** Kotlin 및 XML 레이아웃을 작성하여 바탕화면 위젯 연동.
-3. **3순위 (iOS 네이티브 위젯 구축):** SwiftUI 코드를 작성하여 바탕화면 위젯 연동.
-4. **4순위 (`services.dart` 파일 분리):** 500줄 이상의 서비스 코드를 Storage, Notification, IcsService 등으로 단일 책임 원칙에 맞게 독립 분리.
+### [v4.5.0] 홈 화면 위젯 네이티브 연동 및 앱 출시 준비
+1. **Android 네이티브 위젯:** Kotlin 및 XML 레이아웃을 완성하여 플러터에서 전달하는 날짜/디자인 토큰을 받아 실제 바탕화면 위젯으로 렌더링.
+2. **iOS 네이티브 위젯:** SwiftUI 코드를 작성하여 바탕화면 위젯(App Group 공유) 연동.
+3. **Play Store / App Store 릴리즈:** Keystore 정식 발급 및 스토어 등록용 스크린샷, 텍스트 에셋 준비.
 
 ---
 
@@ -193,4 +208,4 @@
 * **Riverpod 상태 불변성(Immutability) 검증:** `copyWith` 호출 시 기존 객체를 변형하지 않고 완전히 독립된 주소값(`identical` == false)을 반환하여 정상적인 UI 리빌드를 유발하는지 증명.
 
 ---
-*(End of Context - Version: v4.3.9)*
+*(End of Context - Version: v4.4.2)*

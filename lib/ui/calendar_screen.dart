@@ -1,14 +1,16 @@
-// v4.4.1
+// v4.4.3
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
-// [v4.4.1] 슬라이드 모드 오늘 버튼 animateToPage 적용 (스르륵 모션)
+// [v4.4.3] 테마 변경 시 페이지 컨트롤러 파괴 방지 (위젯 트리 통일)
+// [v4.4.3] 일정 리스트뷰 Overscroll 시 패널 닫기 제스처 연동 (사용성 극강 개선)
+// [v4.4.3] 달력 셀(Tile) 전체 영역 터치 인식되도록 HitTestBehavior.opaque 적용
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
-import '../services/services.dart'; // 💡 date_formatter 개별 임포트 삭제됨!
+import '../services/services.dart';
 import '../theme/app_theme.dart';
 import 'widgets/calendar_tile.dart';
 import 'widgets/app_drawer.dart';
@@ -43,7 +45,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     super.initState();
     final focused = ref.read(calendarProvider).focusedDay;
     _pageCtrl = PageController(initialPage: _monthToPage(focused));
-    NotificationService.requestPermissions();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        NotificationService.requestPermissions();
+      });
+    });
   }
 
   @override
@@ -52,16 +59,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     super.dispose();
   }
 
-  // 💡 [Hotfix] 날짜 변경 시 상태와 화면(PageController)을 동기화하는 헬퍼 함수
   void _jumpAndSync(
-      DateTime targetDate, CalendarNotifier notifier, CalendarState st) {
+    DateTime targetDate,
+    CalendarNotifier notifier,
+    CalendarState st,
+  ) {
     notifier.jumpToDate(targetDate);
     if (st.settings.calendarNavMode != CalendarNavMode.arrow) {
       final targetPage = _monthToPage(targetDate);
       if (_pageCtrl.hasClients && _pageCtrl.page?.round() != targetPage) {
         final currentPage = _pageCtrl.page?.round() ?? targetPage;
         final distance = (currentPage - targetPage).abs();
-        // 거리가 멀면 근처로 먼저 점프 후 스르륵 (중간 페이지 렌더링 방지)
         if (distance > 6) {
           final isForward = targetPage > currentPage;
           _pageCtrl.jumpToPage(targetPage + (isForward ? -1 : 1));
@@ -82,105 +90,126 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     });
   }
 
-  // 💡 [Hotfix] 영어 대신 직관적인 한글 '2026년 3월' 형태가 나오는 2단 커스텀 피커
   void _showMonthPicker(
-      BuildContext context, CalendarState st, CalendarNotifier notifier) {
+    BuildContext context,
+    CalendarState st,
+    CalendarNotifier notifier,
+  ) {
     int tempYear = st.focusedDay.year;
     int tempMonth = st.focusedDay.month;
     final th = st.settings.currentTheme.themeData;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: th.bottomSheetBg ??
+      backgroundColor:
+          th.bottomSheetBg ??
           (th.isDark ? const Color(0xFF2A2640) : Colors.white),
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: SizedBox(
-          height: 300,
-          child: Column(
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                      },
-                      child: Text('취소',
-                          style: TextStyle(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder:
+          (ctx) => SafeArea(
+            child: SizedBox(
+              height: 300,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                          },
+                          child: Text(
+                            '취소',
+                            style: TextStyle(
                               color:
                                   th.isDark ? Colors.white54 : Colors.black54,
-                              fontSize: 16)),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        // 현재 포커스된 '일(Day)'을 유지하되, 해당 월의 최대 일수를 넘지 않도록 보정
-                        final maxDay = DateTime(tempYear, tempMonth + 1, 0).day;
-                        final finalDate = DateTime(tempYear, tempMonth,
-                            st.focusedDay.day.clamp(1, maxDay));
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            final maxDay =
+                                DateTime(tempYear, tempMonth + 1, 0).day;
+                            final finalDate = DateTime(
+                              tempYear,
+                              tempMonth,
+                              st.focusedDay.day.clamp(1, maxDay),
+                            );
 
-                        _jumpAndSync(finalDate, notifier, st);
-                        setState(() {
-                          _isPanelOpen = false;
-                        });
-                      },
-                      child: Text('완료',
-                          style: TextStyle(
+                            _jumpAndSync(finalDate, notifier, st);
+                            setState(() {
+                              _isPanelOpen = false;
+                            });
+                          },
+                          child: Text(
+                            '완료',
+                            style: TextStyle(
                               color: th.primaryAccent,
                               fontSize: 16,
-                              fontWeight: FontWeight.bold)),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: CupertinoTheme(
-                  data: CupertinoThemeData(
-                    brightness: th.isDark ? Brightness.dark : Brightness.light,
-                    textTheme: CupertinoTextThemeData(
-                      pickerTextStyle: TextStyle(
-                        color: th.isDark ? Colors.white : Colors.black,
-                        fontSize: 22,
+                  ),
+                  Expanded(
+                    child: CupertinoTheme(
+                      data: CupertinoThemeData(
+                        brightness:
+                            th.isDark ? Brightness.dark : Brightness.light,
+                        textTheme: CupertinoTextThemeData(
+                          pickerTextStyle: TextStyle(
+                            color: th.isDark ? Colors.white : Colors.black,
+                            fontSize: 22,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(
+                                initialItem: tempYear - 2020,
+                              ),
+                              itemExtent: 40,
+                              onSelectedItemChanged: (i) => tempYear = 2020 + i,
+                              children: List.generate(
+                                11,
+                                (i) => Center(child: Text('${2020 + i}년')),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(
+                                initialItem: tempMonth - 1,
+                              ),
+                              itemExtent: 40,
+                              onSelectedItemChanged: (i) => tempMonth = i + 1,
+                              children: List.generate(
+                                12,
+                                (i) => Center(child: Text('${i + 1}월')),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      // 년도 피커
-                      Expanded(
-                        child: CupertinoPicker(
-                          scrollController: FixedExtentScrollController(
-                              initialItem: tempYear - 2020),
-                          itemExtent: 40,
-                          onSelectedItemChanged: (i) => tempYear = 2020 + i,
-                          children: List.generate(
-                              11, (i) => Center(child: Text('${2020 + i}년'))),
-                        ),
-                      ),
-                      // 월 피커
-                      Expanded(
-                        child: CupertinoPicker(
-                          scrollController: FixedExtentScrollController(
-                              initialItem: tempMonth - 1),
-                          itemExtent: 40,
-                          onSelectedItemChanged: (i) => tempMonth = i + 1,
-                          children: List.generate(
-                              12, (i) => Center(child: Text('${i + 1}월'))),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -204,93 +233,106 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         elevation: _isPanelOpen ? 8 : 4,
         child: const Icon(Icons.add, size: 28),
       ),
-      body: st.isLoading
-          ? Center(child: CircularProgressIndicator(color: th.primaryAccent))
-          : Stack(
-              children: [
-                Positioned.fill(
-                  child: GestureDetector(
-                    onVerticalDragEnd: (details) {
-                      final v = details.primaryVelocity ?? 0;
-                      if (v < -300) {
-                        setState(() {
-                          _isPanelOpen = true;
-                        });
-                      }
-                      if (v > 300) {
-                        setState(() {
-                          _isPanelOpen = false;
-                        });
-                      }
-                    },
-                    child: Container(
-                      color: Colors.transparent,
-                      child: Column(
+      body:
+          st.isLoading
+              ? Center(
+                child: CircularProgressIndicator(color: th.primaryAccent),
+              )
+              : Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onVerticalDragEnd: (details) {
+                        final v = details.primaryVelocity ?? 0;
+                        if (v < -300) {
+                          setState(() {
+                            _isPanelOpen = true;
+                          });
+                        }
+                        if (v > 300) {
+                          setState(() {
+                            _isPanelOpen = false;
+                          });
+                        }
+                      },
+                      child: Container(
+                        color: Colors.transparent,
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildCalendarSection(st, notifier, th),
-                          ]),
+                          children: [_buildCalendarSection(st, notifier, th)],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                if (!_isPanelOpen)
-                  Positioned(
-                    bottom: 25,
-                    left: 0,
-                    right: 0,
-                    child:
-                        IgnorePointer(child: _SwipeHint(color: th.appBarText)),
-                  ),
-                // [v4.3.9] 패널 — AnimatedPositioned 단독 → 실시간 드래그 + AnimatedPositioned 조합
-                _PanelDragWrapper(
-                  panelHeight: _panelHeight,
-                  isPanelOpen: _isPanelOpen,
-                  onOpenChanged: (open) => setState(() {
-                    _isPanelOpen = open;
-                  }),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: th.bottomSheetBg ??
-                          (th.isDark ? const Color(0xFF2A2640) : Colors.white),
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(28)),
-                      boxShadow: [
-                        BoxShadow(
+                  if (!_isPanelOpen)
+                    Positioned(
+                      bottom: 25,
+                      left: 0,
+                      right: 0,
+                      child: IgnorePointer(
+                        child: _SwipeHint(color: th.appBarText),
+                      ),
+                    ),
+                  _PanelDragWrapper(
+                    panelHeight: _panelHeight,
+                    isPanelOpen: _isPanelOpen,
+                    onOpenChanged:
+                        (open) => setState(() {
+                          _isPanelOpen = open;
+                        }),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color:
+                            th.bottomSheetBg ??
+                            (th.isDark
+                                ? const Color(0xFF2A2640)
+                                : Colors.white),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(28),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
                             color: Colors.black.withValues(alpha: 0.26),
                             blurRadius: 20,
-                            offset: const Offset(0, -4))
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          color: Colors.transparent,
-                          padding: const EdgeInsets.only(top: 14, bottom: 6),
-                          child: Center(
-                            child: Container(
-                              width: 42,
-                              height: 5,
-                              decoration: BoxDecoration(
+                            offset: const Offset(0, -4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            color: Colors.transparent,
+                            padding: const EdgeInsets.only(top: 14, bottom: 6),
+                            child: Center(
+                              child: Container(
+                                width: 42,
+                                height: 5,
+                                decoration: BoxDecoration(
                                   color: Colors.grey.withValues(alpha: 0.4),
-                                  borderRadius: BorderRadius.circular(3)),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        _buildSectionLabel(context, st, notifier, th),
-                        Expanded(
-                            child: _buildEventList(context, st, notifier, th)),
-                      ],
+                          _buildSectionLabel(context, st, notifier, th),
+                          Expanded(
+                            child: _buildEventList(context, st, notifier, th),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
     );
   }
 
   PreferredSizeWidget _buildAppBar(
-      CalendarState st, CalendarNotifier notifier, CalendarTheme th) {
+    CalendarState st,
+    CalendarNotifier notifier,
+    CalendarTheme th,
+  ) {
     const monthNames = [
       'JAN',
       'FEB',
@@ -303,7 +345,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       'SEP',
       'OCT',
       'NOV',
-      'DEC'
+      'DEC',
     ];
     final today = DateTime.now();
     final focused = st.focusedDay;
@@ -315,7 +357,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       color: th.appBarText,
     );
 
-    // 💡 [Hotfix] 어떤 모드에서든 항상 메뉴 옆에 "2026년 3월"로 통일
     final Widget titleWidget = GestureDetector(
       onTap: () => _showMonthPicker(context, st, notifier),
       child: Text('${focused.year}년 ${focused.month}월', style: dateTextStyle),
@@ -335,24 +376,31 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-                border: Border.all(color: th.appBarText, width: 1.8),
-                borderRadius: BorderRadius.circular(10)),
+              border: Border.all(color: th.appBarText, width: 1.8),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(monthNames[today.month - 1],
-                    style: TextStyle(
-                        fontSize: 7.5,
-                        fontWeight: FontWeight.w600,
-                        height: 1.1,
-                        color: th.appBarText,
-                        letterSpacing: 0.5)),
-                Text('${today.day}',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        height: 1.1,
-                        color: th.appBarText)),
+                Text(
+                  monthNames[today.month - 1],
+                  style: TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                    color: th.appBarText,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  '${today.day}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    height: 1.1,
+                    color: th.appBarText,
+                  ),
+                ),
               ],
             ),
           ),
@@ -376,9 +424,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           icon: Icon(Icons.search, color: th.appBarText, size: 26),
           onPressed: () async {
             final e = await showSearch<CalendarEvent?>(
-                context: context,
-                delegate: EventSearchDelegate(
-                    st.masterEvents.where((e) => !e.isHoliday).toList(), th));
+              context: context,
+              delegate: EventSearchDelegate(
+                st.masterEvents.where((e) => !e.isHoliday).toList(),
+                th,
+              ),
+            );
             if (e != null) {
               _jumpAndSync(e.startDt, notifier, st);
               setState(() {
@@ -393,51 +444,64 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   Widget _buildCalendarSection(
-      CalendarState st, CalendarNotifier notifier, CalendarTheme th) {
+    CalendarState st,
+    CalendarNotifier notifier,
+    CalendarTheme th,
+  ) {
     final mode = st.settings.calendarNavMode;
     final isArrow = mode == CalendarNavMode.arrow;
-    final calWidget = isArrow
-        ? _buildArrowCalendar(st, notifier, th)
-        : _buildSwipeCalendar(st, notifier, th);
+    final calWidget =
+        isArrow
+            ? _buildArrowCalendar(st, notifier, th)
+            : _buildSwipeCalendar(st, notifier, th);
 
-    // 💡 [Hotfix] 상단 분리되어 나오던 별도의 "3월" 헤더를 완전히 제거
-    if (th.hasRoundedCard) {
-      return Expanded(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-          child: Container(
-              decoration: BoxDecoration(
-                  color: th.calendarBg,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
+    // 💡 [이슈1 완벽 해결] 테마 구조(hasRoundedCard)가 바뀌어도 PageView가 파괴되지 않도록
+    // 위젯 트리의 구조를 <Expanded - Padding - Container>로 동일하게 고정하고 속성값만 변경합니다.
+    return Expanded(
+      child: Padding(
+        padding:
+            th.hasRoundedCard
+                ? const EdgeInsets.fromLTRB(16, 0, 16, 0)
+                : EdgeInsets.zero,
+        child: Container(
+          decoration:
+              th.hasRoundedCard
+                  ? BoxDecoration(
+                    color: th.calendarBg,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
                         color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 16,
-                        offset: const Offset(0, 4))
-                  ]),
-              child: calWidget),
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  )
+                  : BoxDecoration(
+                    color: th.calendarBg,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(28),
+                      bottomRight: Radius.circular(28),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+          child: calWidget,
         ),
-      );
-    }
-    return Expanded(
-      child: Container(
-          decoration: BoxDecoration(
-              color: th.calendarBg,
-              borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28)),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4))
-              ]),
-          child: calWidget),
+      ),
     );
   }
 
   Widget _buildArrowCalendar(
-      CalendarState st, CalendarNotifier notifier, CalendarTheme th) {
+    CalendarState st,
+    CalendarNotifier notifier,
+    CalendarTheme th,
+  ) {
     final hc = th.appBarText;
     const dows = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -462,9 +526,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               c = Colors.blueAccent;
             }
             return Center(
-                child: Text(dows[day.weekday % 7],
-                    style: TextStyle(
-                        color: c, fontSize: 12, fontWeight: FontWeight.bold)));
+              child: Text(
+                dows[day.weekday % 7],
+                style: TextStyle(
+                  color: c,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
           },
           defaultBuilder: (_, d, __) => _tile(d, st, th),
           todayBuilder: (_, d, __) => _tile(d, st, th, isToday: true),
@@ -473,12 +543,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           markerBuilder: (_, __, ___) => const SizedBox.shrink(),
         ),
         headerStyle: HeaderStyle(
-            formatButtonVisible: false,
-            titleCentered: true,
-            titleTextFormatter: (d, _) => '',
-            titleTextStyle: const TextStyle(fontSize: 0),
-            leftChevronIcon: Icon(Icons.chevron_left, color: hc),
-            rightChevronIcon: Icon(Icons.chevron_right, color: hc)),
+          formatButtonVisible: false,
+          titleCentered: true,
+          titleTextFormatter: (d, _) => '',
+          titleTextStyle: const TextStyle(fontSize: 0),
+          leftChevronIcon: Icon(Icons.chevron_left, color: hc),
+          rightChevronIcon: Icon(Icons.chevron_right, color: hc),
+        ),
         onHeaderTapped: (date) {
           _showMonthPicker(context, st, notifier);
         },
@@ -487,51 +558,68 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   Widget _buildSwipeCalendar(
-      CalendarState st, CalendarNotifier notifier, CalendarTheme th) {
+    CalendarState st,
+    CalendarNotifier notifier,
+    CalendarTheme th,
+  ) {
     final hc = th.appBarText;
     const dows = ['일', '월', '화', '수', '목', '금', '토'];
-    final axis = st.settings.calendarNavMode == CalendarNavMode.swipeVertical
-        ? Axis.vertical
-        : Axis.horizontal;
+    final axis =
+        st.settings.calendarNavMode == CalendarNavMode.swipeVertical
+            ? Axis.vertical
+            : Axis.horizontal;
 
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Row(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
             children: List.generate(7, (i) {
-          Color c = hc.withValues(alpha: 0.6);
-          if (i == 0) {
-            c = Colors.redAccent;
-          }
-          if (i == 6) {
-            c = Colors.blueAccent;
-          }
-          return Expanded(
-              child: Center(
-                  child: Text(dows[i],
-                      style: TextStyle(
-                          color: c,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold))));
-        })),
-      ),
-      Expanded(
-        child: PageView.builder(
-          scrollDirection: axis,
-          controller: _pageCtrl,
-          pageSnapping: true,
-          onPageChanged: (page) {
-            notifier.onSwipePageChanged(_pageToMonth(page));
-          },
-          itemBuilder: (_, page) =>
-              _buildMonthGrid(_pageToMonth(page), st, notifier, th),
+              Color c = hc.withValues(alpha: 0.6);
+              if (i == 0) {
+                c = Colors.redAccent;
+              }
+              if (i == 6) {
+                c = Colors.blueAccent;
+              }
+              return Expanded(
+                child: Center(
+                  child: Text(
+                    dows[i],
+                    style: TextStyle(
+                      color: c,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
         ),
-      ),
-    ]);
+        Expanded(
+          child: PageView.builder(
+            scrollDirection: axis,
+            controller: _pageCtrl,
+            pageSnapping: true,
+            onPageChanged: (page) {
+              notifier.onSwipePageChanged(_pageToMonth(page));
+            },
+            itemBuilder:
+                (_, page) =>
+                    _buildMonthGrid(_pageToMonth(page), st, notifier, th),
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _buildMonthGrid(DateTime month, CalendarState st,
-      CalendarNotifier notifier, CalendarTheme th) {
+  Widget _buildMonthGrid(
+    DateTime month,
+    CalendarState st,
+    CalendarNotifier notifier,
+    CalendarTheme th,
+  ) {
     final first = DateTime(month.year, month.month, 1);
     final offset = first.weekday % 7;
     final weeks =
@@ -542,29 +630,41 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       children: List.generate(weeks, (w) {
         return Expanded(
           child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: List.generate(7, (d) {
-                final date =
-                    first.subtract(Duration(days: offset - (w * 7 + d)));
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      _onDaySelected(date, month, notifier);
-                    },
-                    child: _tile(date, st, th,
-                        isToday: isSameDay(date, today),
-                        isSelected: isSameDay(date, st.selectedDay),
-                        isOutside: date.month != month.month),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: List.generate(7, (d) {
+              final date = first.subtract(Duration(days: offset - (w * 7 + d)));
+              return Expanded(
+                child: GestureDetector(
+                  // 💡 [이슈3 완벽 해결] 빈 공간(투명 영역)을 터치해도 인식하도록 HitTestBehavior.opaque 추가!
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    _onDaySelected(date, month, notifier);
+                  },
+                  child: _tile(
+                    date,
+                    st,
+                    th,
+                    isToday: isSameDay(date, today),
+                    isSelected: isSameDay(date, st.selectedDay),
+                    isOutside: date.month != month.month,
                   ),
-                );
-              })),
+                ),
+              );
+            }),
+          ),
         );
       }),
     );
   }
 
-  Widget _tile(DateTime day, CalendarState st, CalendarTheme th,
-      {bool isToday = false, bool isSelected = false, bool isOutside = false}) {
+  Widget _tile(
+    DateTime day,
+    CalendarState st,
+    CalendarTheme th, {
+    bool isToday = false,
+    bool isSelected = false,
+    bool isOutside = false,
+  }) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth <= 360;
 
@@ -579,9 +679,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       }
     }
 
-    return Stack(
-      children: [
-        CalendarTile(
+    // 💡 [이슈3 완벽 해결 보강] 전체 영역 터치 인식을 위해 Container(color: Colors.transparent) 껍데기 씌우기
+    return Container(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          CalendarTile(
             day: day,
             th: th,
             eventsByDate: st.eventsByDate,
@@ -590,67 +693,95 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             isSelected: isSelected,
             isOutside: isOutside,
             isHoliday: st.holidayDates.contains(DateFormatter.dateKey(day)),
-            showLunar: false),
-        if (customLunarText != null)
-          Positioned(
-            right: 4.0,
-            top: 4.0,
-            child: Text(
-              customLunarText,
-              style: TextStyle(
-                fontSize: 9.0,
-                color: th.isDark ? Colors.white54 : Colors.black54,
+            showLunar: false,
+          ),
+          if (customLunarText != null)
+            Positioned(
+              right: 4.0,
+              top: 4.0,
+              child: Text(
+                customLunarText,
+                style: TextStyle(
+                  fontSize: 9.0,
+                  color: th.isDark ? Colors.white54 : Colors.black54,
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildSectionLabel(BuildContext context, CalendarState st,
-      CalendarNotifier notifier, CalendarTheme th) {
+  Widget _buildSectionLabel(
+    BuildContext context,
+    CalendarState st,
+    CalendarNotifier notifier,
+    CalendarTheme th,
+  ) {
     final displayDay = st.selectedDay ?? st.focusedDay;
     final isToday = isSameDay(displayDay, DateTime.now());
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 6, 20, 12),
-      child: Row(children: [
-        Text(isToday ? 'Today' : DateFormatter.formatDateKorean(displayDay),
+      child: Row(
+        children: [
+          Text(
+            isToday ? 'Today' : DateFormatter.formatDateKorean(displayDay),
             style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: th.sectionLabelText)),
-        const Spacer(),
-        Text('무음모드',
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: th.sectionLabelText,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '무음모드',
             style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: th.isDark ? Colors.white70 : Colors.black54)),
-        const SizedBox(width: 8),
-        Transform.scale(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: th.isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Transform.scale(
             scale: 0.75,
             child: CupertinoSwitch(
-                activeTrackColor: th.primaryAccent,
-                value: st.settings.globalSilentMode,
-                onChanged: (val) async {
-                  await notifier.updateSettings(
-                      st.settings.copyWith(globalSilentMode: val));
-                })),
-      ]),
+              activeTrackColor: th.primaryAccent,
+              value: st.settings.globalSilentMode,
+              onChanged: (val) async {
+                await notifier.updateSettings(
+                  st.settings.copyWith(globalSilentMode: val),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildEventList(BuildContext context, CalendarState st,
-      CalendarNotifier notifier, CalendarTheme th) {
+  Widget _buildEventList(
+    BuildContext context,
+    CalendarState st,
+    CalendarNotifier notifier,
+    CalendarTheme th,
+  ) {
     if (st.selectedEvents.isEmpty) {
       return Center(
-          child: Padding(
-              padding: const EdgeInsets.only(bottom: 50),
-              child: Text('이 날의 일정이 없어요',
-                  style: TextStyle(
-                      color: th.sectionLabelText.withValues(alpha: 0.5),
-                      fontSize: 16))));
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 50),
+          child: Text(
+            '이 날의 일정이 없어요',
+            style: TextStyle(
+              color: th.sectionLabelText.withValues(alpha: 0.5),
+              fontSize: 16,
+            ),
+          ),
+        ),
+      );
     }
     return ListView.builder(
+      // 💡 [이슈2 보조] 리스트가 짧아도 항상 스크롤(Overscroll) 이벤트를 발생시켜 패널 닫기를 유도합니다.
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       itemCount: st.selectedEvents.length,
       cacheExtent: 500,
@@ -663,90 +794,128 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             }
           },
           child: th.buildEventListItem(
-              context: context,
-              event: event,
-              dateInfo: DateFormatter.makeTimeString(event),
-              isGlobalSilent: st.settings.globalSilentMode,
-              onToggleAlarm: () {
-                notifier.toggleAlarm(event);
-              },
-              formatHHmm: DateFormatter.formatHHmm),
+            context: context,
+            event: event,
+            dateInfo: DateFormatter.makeTimeString(event),
+            isGlobalSilent: st.settings.globalSilentMode,
+            onToggleAlarm: () {
+              notifier.toggleAlarm(event);
+            },
+            formatHHmm: DateFormatter.formatHHmm,
+          ),
         );
       },
     );
   }
 
   void _showEventEditor(
-      BuildContext context, CalendarState st, CalendarNotifier notifier,
-      {CalendarEvent? existingEvent}) {
+    BuildContext context,
+    CalendarState st,
+    CalendarNotifier notifier, {
+    CalendarEvent? existingEvent,
+  }) {
     showEventEditor(
-        context: context,
-        th: st.settings.currentTheme.themeData,
-        settings: st.settings,
-        currentEventCount: st.masterEvents.length,
-        existingEvent: existingEvent,
-        selectedDay: st.selectedDay ?? st.focusedDay,
-        onSave: (e) async {
-          if (existingEvent == null) {
-            await notifier.addEvent(e);
-          } else {
-            await notifier.updateEvent(e);
-          }
-        });
+      context: context,
+      th: st.settings.currentTheme.themeData,
+      settings: st.settings,
+      currentEventCount: st.masterEvents.length,
+      existingEvent: existingEvent,
+      selectedDay: st.selectedDay ?? st.focusedDay,
+      onSave: (e) async {
+        if (existingEvent == null) {
+          await notifier.addEvent(e);
+        } else {
+          await notifier.updateEvent(e);
+        }
+      },
+    );
   }
 
-  void _showActionSheet(BuildContext context, CalendarEvent event,
-      CalendarState st, CalendarNotifier notifier, CalendarTheme th) {
+  void _showActionSheet(
+    BuildContext context,
+    CalendarEvent event,
+    CalendarState st,
+    CalendarNotifier notifier,
+    CalendarTheme th,
+  ) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: th.bottomSheetBg ??
+      backgroundColor:
+          th.bottomSheetBg ??
           (th.isDark ? const Color(0xFF2A2640) : Colors.white),
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    borderRadius: BorderRadius.circular(2))),
-            ListTile(
-                leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration:
-                        BoxDecoration(color: th.iconBg, shape: BoxShape.circle),
-                    child: Icon(Icons.edit, color: th.iconColor)),
-                title: Text('수정하기',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: (th.isDark || th.bottomSheetBg != null)
-                            ? Colors.white
-                            : Colors.black)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showEventEditor(context, st, notifier, existingEvent: event);
-                }),
-            ListTile(
-                leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        shape: BoxShape.circle),
-                    child: const Icon(Icons.delete, color: Colors.redAccent)),
-                title: const Text('삭제하기',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600, color: Colors.redAccent)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await notifier.deleteEvent(event.id);
-                }),
-          ]),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder:
+          (ctx) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[400],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: th.iconBg,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.edit, color: th.iconColor),
+                    ),
+                    title: Text(
+                      '수정하기',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color:
+                            (th.isDark || th.bottomSheetBg != null)
+                                ? Colors.white
+                                : Colors.black,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showEventEditor(
+                        context,
+                        st,
+                        notifier,
+                        existingEvent: event,
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.delete, color: Colors.redAccent),
+                    ),
+                    title: const Text(
+                      '삭제하기',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await notifier.deleteEvent(event.id);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
     );
   }
 } // end of _CalendarScreenState
@@ -802,25 +971,28 @@ class _PanelDragWrapperState extends State<_PanelDragWrapper>
   void _snapTo(double target) {
     _animating = true;
     final from = _currentBottom;
-    _snapAnim = Tween<double>(begin: from, end: target).animate(
-      CurvedAnimation(parent: _snapCtrl, curve: Curves.easeInOutCubic),
-    )
-      ..addListener(() {
-        setState(() => _currentBottom = _snapAnim.value);
-      })
-      ..addStatusListener((s) {
-        if (s == AnimationStatus.completed) {
-          _animating = false;
-          _currentBottom = target;
-        }
-      });
+    _snapAnim =
+        Tween<double>(begin: from, end: target).animate(
+            CurvedAnimation(parent: _snapCtrl, curve: Curves.easeInOutCubic),
+          )
+          ..addListener(() {
+            setState(() => _currentBottom = _snapAnim.value);
+          })
+          ..addStatusListener((s) {
+            if (s == AnimationStatus.completed) {
+              _animating = false;
+              _currentBottom = target;
+            }
+          });
     _snapCtrl.forward(from: 0);
   }
 
   void _onDragUpdate(DragUpdateDetails d) {
     if (widget.panelHeight <= 0) return;
-    _currentBottom =
-        (_currentBottom + d.delta.dy).clamp(0.0, widget.panelHeight);
+    _currentBottom = (_currentBottom + d.delta.dy).clamp(
+      0.0,
+      widget.panelHeight,
+    );
     setState(() {});
   }
 
@@ -848,11 +1020,34 @@ class _PanelDragWrapperState extends State<_PanelDragWrapper>
       left: 0,
       right: 0,
       height: widget.panelHeight,
-      child: GestureDetector(
-        onVerticalDragUpdate: _onDragUpdate,
-        onVerticalDragEnd: _onDragEnd,
-        behavior: HitTestBehavior.translucent,
-        child: widget.child,
+      // 💡 [이슈2 완벽 해결] 패널 안의 스크롤 뷰(ListView)에서 발생하는 제스처를 감청합니다!
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (ScrollNotification info) {
+          // 리스트가 최상단일 때 + 쓸어내리는 힘이 발생하면 -> 패널 닫기 액션으로 힘을 넘겨줍니다.
+          if (info is OverscrollNotification &&
+              info.overscroll < 0 &&
+              info.dragDetails != null) {
+            _onDragUpdate(info.dragDetails!);
+          } else if (info is ScrollUpdateNotification &&
+              info.metrics.pixels <= 0 &&
+              info.dragDetails != null &&
+              info.dragDetails!.delta.dy > 0) {
+            _onDragUpdate(info.dragDetails!);
+          } else if (info is ScrollEndNotification) {
+            // 패널이 어중간하게 열려있을 때 손을 떼면 스냅(Snap) 애니메이션 실행
+            if (_currentBottom > 0 && _currentBottom < widget.panelHeight) {
+              _onDragEnd(DragEndDetails(primaryVelocity: 0));
+            }
+          }
+          // false를 반환하여 일반적인 리스트 스크롤도 방해받지 않도록 합니다.
+          return false;
+        },
+        child: GestureDetector(
+          onVerticalDragUpdate: _onDragUpdate,
+          onVerticalDragEnd: _onDragEnd,
+          behavior: HitTestBehavior.translucent,
+          child: widget.child,
+        ),
       ),
     );
   }
@@ -872,8 +1067,9 @@ class _SwipeHintState extends State<_SwipeHint>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat(reverse: true);
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -886,20 +1082,28 @@ class _SwipeHintState extends State<_SwipeHint>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (_, __) => Transform.translate(
-        offset: Offset(0, -6 * _ctrl.value),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.keyboard_arrow_up_rounded,
-                color: widget.color.withValues(alpha: 0.7), size: 26),
-            Transform.translate(
-                offset: const Offset(0, -12),
-                child: Icon(Icons.keyboard_arrow_up_rounded,
-                    color: widget.color.withValues(alpha: 0.3), size: 26)),
-          ],
-        ),
-      ),
+      builder:
+          (_, __) => Transform.translate(
+            offset: Offset(0, -6 * _ctrl.value),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.keyboard_arrow_up_rounded,
+                  color: widget.color.withValues(alpha: 0.7),
+                  size: 26,
+                ),
+                Transform.translate(
+                  offset: const Offset(0, -12),
+                  child: Icon(
+                    Icons.keyboard_arrow_up_rounded,
+                    color: widget.color.withValues(alpha: 0.3),
+                    size: 26,
+                  ),
+                ),
+              ],
+            ),
+          ),
     );
   }
 }

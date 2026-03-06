@@ -1,12 +1,13 @@
 // v4.4.2
 // providers.dart
 // lib/providers/providers.dart
-// [v4.4.2] Riverpod 3.x 마이그레이션: StateNotifier → Notifier, StateNotifierProvider → NotifierProvider
+// [v4.4.2] Riverpod 3.x 마이그레이션 및 캡처 방지 로직 적용
 
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show kIsWeb, compute, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:screen_protector/screen_protector.dart'; // 💡 [신규 추가됨] 화면 캡처 방지 패키지
 import '../models/models.dart';
 import '../services/services.dart';
 import '../theme/app_theme.dart';
@@ -98,11 +99,9 @@ class CalendarState {
   );
 }
 
-// [v4.4.2] StateNotifier → Notifier 마이그레이션
 class CalendarNotifier extends Notifier<CalendarState> {
   DateTime _windowCenter = DateTime.now();
 
-  // [v4.4.2] build()가 초기 state 반환 (생성자 대체)
   @override
   CalendarState build() {
     _init();
@@ -129,6 +128,15 @@ class CalendarNotifier extends Notifier<CalendarState> {
     }
 
     state = state.copyWith(settings: settings);
+
+    // 💡 [신규 추가됨] 앱 시작 시 캡처 방지 설정 적용
+    if (!kIsWeb) {
+      if (settings.preventCapture) {
+        await ScreenProtector.preventScreenshotOn();
+      } else {
+        await ScreenProtector.preventScreenshotOff();
+      }
+    }
 
     await NotificationService.initNotifications();
     await _rebuildIndex(events, firstLoad: true);
@@ -349,6 +357,15 @@ class CalendarNotifier extends Notifier<CalendarState> {
     final prev = state.settings;
     state = state.copyWith(settings: settings);
 
+    // 💡 [신규 추가됨] 설정 화면에서 토글 스위치를 바꿨을 때 즉시 적용
+    if (!kIsWeb && prev.preventCapture != settings.preventCapture) {
+      if (settings.preventCapture) {
+        await ScreenProtector.preventScreenshotOn();
+      } else {
+        await ScreenProtector.preventScreenshotOff();
+      }
+    }
+
     final needsRebuild =
         prev.showHolidays != settings.showHolidays ||
         prev.currentTheme.themeData.showTextInside !=
@@ -388,7 +405,6 @@ class CalendarNotifier extends Notifier<CalendarState> {
   }
 }
 
-// [v4.4.2] StateNotifierProvider → NotifierProvider
 final calendarProvider = NotifierProvider<CalendarNotifier, CalendarState>(
   CalendarNotifier.new,
 );

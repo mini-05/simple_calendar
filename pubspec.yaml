@@ -42,6 +42,7 @@ dependencies:
   home_widget: ^0.7.0
   intl: ^0.20.2
   shared_preferences: ^2.5.4
+  screen_protector: ^1.5.1
 
 dev_dependencies:
   flutter_test:

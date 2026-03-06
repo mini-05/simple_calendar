@@ -16,31 +16,26 @@ enum CalendarNavMode {
   final String label;
 }
 
-// 💡 [v4.3.9 신규] 스플래시 / 홈 위젯 인포그래픽 테마 4종
 enum WidgetTheme { flip, circle, classic, astronomical }
 
 extension WidgetThemeExt on WidgetTheme {
   String get label => switch (this) {
-        WidgetTheme.flip => 'Flip (블루)',
-        WidgetTheme.circle => 'Circle (네온)',
-        WidgetTheme.classic => 'Classic (그린)',
-        WidgetTheme.astronomical => 'Astronomical (우주)',
-      };
+    WidgetTheme.flip => 'Flip (블루)',
+    WidgetTheme.circle => 'Circle (네온)',
+    WidgetTheme.classic => 'Classic (그린)',
+    WidgetTheme.astronomical => 'Astronomical (우주)',
+  };
 }
 
 enum AlarmMode { silent, soundOnly, vibrationOnly, soundAndVibration }
 
-// [v4.3.7] Dart 3.0 Switch Expression 적용: 14줄 → 8줄
-// 동작 100% 동일. enum exhaustive 보장을 컴파일러가 검사.
-// _advance()는 monthly/yearly에 지역변수(lastDay) 필요 → 클로저 필요해 가독성 저하로 기존 유지
-// alarmDateTime split은 length!=2 안전장치 필수(ICS 외부 입력 크래시 방지) → 기존 유지
 extension AlarmModeExt on AlarmMode {
   String get label => switch (this) {
-        AlarmMode.silent => '무음',
-        AlarmMode.soundOnly => '소리',
-        AlarmMode.vibrationOnly => '진동',
-        AlarmMode.soundAndVibration => '소리+진동',
-      };
+    AlarmMode.silent => '무음',
+    AlarmMode.soundOnly => '소리',
+    AlarmMode.vibrationOnly => '진동',
+    AlarmMode.soundAndVibration => '소리+진동',
+  };
 }
 
 enum NotificationSound {
@@ -68,26 +63,29 @@ enum VibrationPattern {
   doublePulse(label: '짧게 두 번', pattern: [0, 150, 100, 150]),
   longThenDouble(label: '길게 후 짧게 두 번', pattern: [0, 600, 150, 150, 100, 150]),
   escalating(label: '점점 강해짐', pattern: [0, 100, 100, 200, 100, 300, 100, 400]),
-  sos(label: 'SOS', pattern: [
-    0,
-    150,
-    100,
-    150,
-    100,
-    150,
-    200,
-    400,
-    100,
-    400,
-    100,
-    400,
-    200,
-    150,
-    100,
-    150,
-    100,
-    150
-  ]),
+  sos(
+    label: 'SOS',
+    pattern: [
+      0,
+      150,
+      100,
+      150,
+      100,
+      150,
+      200,
+      400,
+      100,
+      400,
+      100,
+      400,
+      200,
+      150,
+      100,
+      150,
+      100,
+      150,
+    ],
+  ),
   siren(label: '사이렌', pattern: [0, 500, 150, 300, 150, 500, 150, 300]);
 
   const VibrationPattern({required this.label, required this.pattern});
@@ -155,16 +153,23 @@ class RecurrenceRule {
 
   factory RecurrenceRule.fromJson(Map<String, dynamic> j) {
     return RecurrenceRule(
-      frequency:
-          _safeEnum(RecurrenceFrequency.values, j['frequency'] as int?, 0),
+      frequency: _safeEnum(
+        RecurrenceFrequency.values,
+        j['frequency'] as int?,
+        0,
+      ),
       interval: j['interval'] as int? ?? 1,
       until:
           j['until'] != null ? DateTime.tryParse(j['until'] as String) : null,
     );
   }
 
-  List<DateTime> expand(DateTime start,
-      {DateTime? from, DateTime? to, int limit = 100000}) {
+  List<DateTime> expand(
+    DateTime start, {
+    DateTime? from,
+    DateTime? to,
+    int limit = 100000,
+  }) {
     final result = <DateTime>[];
     var cur = start;
     int count = 0;
@@ -215,8 +220,9 @@ class AppSettings {
   final String? customSoundPath;
   final AppTheme currentTheme;
   final CalendarNavMode calendarNavMode;
-  final WidgetTheme dynamicWidgetTheme; // 💡 [v4.3.9 신규]
-  final bool showSplash; // [v4.4.2] 스플래시 ON/OFF
+  final WidgetTheme dynamicWidgetTheme;
+  final bool showSplash;
+  final bool preventCapture; // 💡 [신규 추가됨] 캡처 방지 옵션 변수
 
   const AppSettings({
     this.showLunarCalendar = false,
@@ -230,8 +236,9 @@ class AppSettings {
     this.customSoundPath,
     this.currentTheme = AppTheme.samsung,
     this.calendarNavMode = CalendarNavMode.swipeHorizontal,
-    this.dynamicWidgetTheme = WidgetTheme.flip, // 💡 [v4.3.9 신규] 기본값
-    this.showSplash = true, // [v4.4.2] 기본값: 켜짐
+    this.dynamicWidgetTheme = WidgetTheme.flip,
+    this.showSplash = true,
+    this.preventCapture = true, // 💡 기본값: 캡처 방지 켜짐
   });
 
   AlarmMode get effectiveMode {
@@ -263,8 +270,9 @@ class AppSettings {
       'customSoundPath': customSoundPath,
       'currentTheme': currentTheme.index,
       'calendarNavMode': calendarNavMode.index,
-      'dynamicWidgetTheme': dynamicWidgetTheme.index, // 💡 [v4.3.9 신규]
-      'showSplash': showSplash, // [v4.4.2]
+      'dynamicWidgetTheme': dynamicWidgetTheme.index,
+      'showSplash': showSplash,
+      'preventCapture': preventCapture, // 💡 추가
     };
   }
 
@@ -276,18 +284,34 @@ class AppSettings {
       soundEnabled: j['soundEnabled'] ?? true,
       vibrationEnabled: j['vibrationEnabled'] ?? true,
       globalSilentMode: j['globalSilentMode'] ?? false,
-      soundOption:
-          _safeEnum(NotificationSound.values, j['soundOption'] as int?, 0),
-      vibrationPattern:
-          _safeEnum(VibrationPattern.values, j['vibrationPattern'] as int?, 1),
+      soundOption: _safeEnum(
+        NotificationSound.values,
+        j['soundOption'] as int?,
+        0,
+      ),
+      vibrationPattern: _safeEnum(
+        VibrationPattern.values,
+        j['vibrationPattern'] as int?,
+        1,
+      ),
       customSoundPath: j['customSoundPath'],
       currentTheme: _safeEnum(
-          AppTheme.values, j['currentTheme'] as int?, AppTheme.samsung.index),
-      calendarNavMode:
-          _safeEnum(CalendarNavMode.values, j['calendarNavMode'] as int?, 2),
-      dynamicWidgetTheme: _safeEnum(WidgetTheme.values,
-          j['dynamicWidgetTheme'] as int?, 0), // 💡 [v4.3.9 신규]
-      showSplash: j['showSplash'] ?? true, // [v4.4.2] 없으면 기본값 true
+        AppTheme.values,
+        j['currentTheme'] as int?,
+        AppTheme.samsung.index,
+      ),
+      calendarNavMode: _safeEnum(
+        CalendarNavMode.values,
+        j['calendarNavMode'] as int?,
+        2,
+      ),
+      dynamicWidgetTheme: _safeEnum(
+        WidgetTheme.values,
+        j['dynamicWidgetTheme'] as int?,
+        0,
+      ),
+      showSplash: j['showSplash'] ?? true,
+      preventCapture: j['preventCapture'] ?? true, // 💡 추가
     );
   }
 
@@ -304,8 +328,9 @@ class AppSettings {
     bool clearCustom = false,
     AppTheme? currentTheme,
     CalendarNavMode? calendarNavMode,
-    WidgetTheme? dynamicWidgetTheme, // 💡 [v4.3.9 신규]
-    bool? showSplash, // [v4.4.2]
+    WidgetTheme? dynamicWidgetTheme,
+    bool? showSplash,
+    bool? preventCapture, // 💡 추가
   }) {
     return AppSettings(
       showLunarCalendar: showLunarCalendar ?? this.showLunarCalendar,
@@ -320,9 +345,9 @@ class AppSettings {
           clearCustom ? null : (customSoundPath ?? this.customSoundPath),
       currentTheme: currentTheme ?? this.currentTheme,
       calendarNavMode: calendarNavMode ?? this.calendarNavMode,
-      dynamicWidgetTheme:
-          dynamicWidgetTheme ?? this.dynamicWidgetTheme, // 💡 [v4.3.9 신규]
-      showSplash: showSplash ?? this.showSplash, // [v4.4.2]
+      dynamicWidgetTheme: dynamicWidgetTheme ?? this.dynamicWidgetTheme,
+      showSplash: showSplash ?? this.showSplash,
+      preventCapture: preventCapture ?? this.preventCapture, // 💡 추가
     );
   }
 }
@@ -368,8 +393,8 @@ class CalendarEvent {
     this.recurrenceRule,
     this.parentId,
     this.isRecurrenceInstance = false,
-  })  : startDt = _safeParse(date),
-        endDt = _safeParse(endDate ?? date);
+  }) : startDt = _safeParse(date),
+       endDt = _safeParse(endDate ?? date);
 
   bool get isHoliday => id < 0;
 
@@ -388,18 +413,27 @@ class CalendarEvent {
   DateTime? get alarmDateTime {
     if (alarmMinutes == AlarmMinutes.none) return null;
     if (isAllDay) {
-      return DateTime(startDt.year, startDt.month, startDt.day, 9, 0)
-          .subtract(Duration(minutes: alarmMinutes.minutes));
+      return DateTime(
+        startDt.year,
+        startDt.month,
+        startDt.day,
+        9,
+        0,
+      ).subtract(Duration(minutes: alarmMinutes.minutes));
     }
     if (startTime == null) return null;
-    // ICS 외부 데이터 크래시 방지: length 체크 필수 → List destructuring 미적용
     final parts = startTime!.split(':');
     if (parts.length != 2) return null;
     final h = int.tryParse(parts[0]);
     final m = int.tryParse(parts[1]);
     if (h == null || m == null) return null;
-    return DateTime(startDt.year, startDt.month, startDt.day, h, m)
-        .subtract(Duration(minutes: alarmMinutes.minutes));
+    return DateTime(
+      startDt.year,
+      startDt.month,
+      startDt.day,
+      h,
+      m,
+    ).subtract(Duration(minutes: alarmMinutes.minutes));
   }
 
   Map<String, dynamic> toJson() {
@@ -432,19 +466,34 @@ class CalendarEvent {
       isAllDay: j['isAllDay'] as bool? ?? false,
       startTime: j['startTime'] as String?,
       endTime: j['endTime'] as String?,
-      alarmMinutes:
-          _safeEnum(AlarmMinutes.values, j['alarmMinutes'] as int?, 0),
-      eventAlarmMode: _safeEnum(AlarmMode.values, j['eventAlarmMode'] as int?,
-          AlarmMode.soundAndVibration.index),
+      alarmMinutes: _safeEnum(
+        AlarmMinutes.values,
+        j['alarmMinutes'] as int?,
+        0,
+      ),
+      eventAlarmMode: _safeEnum(
+        AlarmMode.values,
+        j['eventAlarmMode'] as int?,
+        AlarmMode.soundAndVibration.index,
+      ),
       isAlarmOn: j['isAlarmOn'] as bool? ?? true,
-      soundOption:
-          _safeEnum(NotificationSound.values, j['soundOption'] as int?, 0),
-      vibrationPattern:
-          _safeEnum(VibrationPattern.values, j['vibrationPattern'] as int?, 1),
+      soundOption: _safeEnum(
+        NotificationSound.values,
+        j['soundOption'] as int?,
+        0,
+      ),
+      vibrationPattern: _safeEnum(
+        VibrationPattern.values,
+        j['vibrationPattern'] as int?,
+        1,
+      ),
       customSoundPath: j['customSoundPath'] as String?,
-      recurrenceRule: j['recurrenceRule'] != null
-          ? RecurrenceRule.fromJson(j['recurrenceRule'] as Map<String, dynamic>)
-          : null,
+      recurrenceRule:
+          j['recurrenceRule'] != null
+              ? RecurrenceRule.fromJson(
+                j['recurrenceRule'] as Map<String, dynamic>,
+              )
+              : null,
     );
   }
 
