@@ -1,6 +1,6 @@
-// v4.3.9
+// v4.4.2
 // lib/services/notification_service.dart
-// [Web 호환성 패치] kIsWeb 차단벽 적용 및 dart:io Platform 제거
+// [v4.4.2] flutter_local_notifications ^19.x 마이그레이션: uiLocalNotificationDateInterpretation 제거
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -13,7 +13,6 @@ import 'storage_service.dart' show appLog;
 
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
-  // 💡 dart:io의 Platform 대신 foundation의 defaultTargetPlatform 사용
   static bool get _isMobile =>
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
@@ -23,8 +22,9 @@ class NotificationService {
     if (!_isMobile) return;
     tz_data.initializeTimeZones();
     try {
-      final loc =
-          tz.getLocation((await FlutterTimezone.getLocalTimezone()).toString());
+      final loc = tz.getLocation(
+        (await FlutterTimezone.getLocalTimezone()).toString(),
+      );
       tz.setLocalLocation(loc);
     } catch (e) {
       appLog('[NotifSvc] 시간대 설정 실패, Asia/Seoul 사용: $e');
@@ -34,25 +34,38 @@ class NotificationService {
 
   static Future<void> initNotifications() async {
     if (!_isMobile) return;
-    await _plugin.initialize(const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(),
-    ));
+    await _plugin.initialize(
+      const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        iOS: DarwinInitializationSettings(),
+      ),
+    );
   }
 
-  static Future<String> _ensureChannel(AlarmMode mode, NotificationSound sound,
-      VibrationPattern vib, String? customPath) async {
+  static Future<String> _ensureChannel(
+    AlarmMode mode,
+    NotificationSound sound,
+    VibrationPattern vib,
+    String? customPath,
+  ) async {
     if (!_isMobile) return 'cal_silent';
-    final impl = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final impl =
+        _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
     if (impl == null) return 'cal_silent';
 
     if (mode == AlarmMode.silent) {
-      await impl.createNotificationChannel(const AndroidNotificationChannel(
-          'cal_silent', '무음 알림',
+      await impl.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'cal_silent',
+          '무음 알림',
           importance: Importance.low,
           playSound: false,
-          enableVibration: false));
+          enableVibration: false,
+        ),
+      );
       return 'cal_silent';
     }
 
@@ -82,12 +95,17 @@ class NotificationService {
       name = playSnd ? '$name (진동포함)' : '진동 전용 알림';
     }
 
-    await impl.createNotificationChannel(AndroidNotificationChannel(id, name,
+    await impl.createNotificationChannel(
+      AndroidNotificationChannel(
+        id,
+        name,
         importance: Importance.high,
         playSound: playSnd,
         sound: snd,
         enableVibration: playVib,
-        vibrationPattern: playVib ? vib.patternInt64 : null));
+        vibrationPattern: playVib ? vib.patternInt64 : null,
+      ),
+    );
     return id;
   }
 
@@ -106,8 +124,12 @@ class NotificationService {
     try {
       final mode =
           settings.globalSilentMode ? AlarmMode.silent : event.eventAlarmMode;
-      final channelId = await _ensureChannel(mode, event.soundOption,
-          event.vibrationPattern, event.customSoundPath);
+      final channelId = await _ensureChannel(
+        mode,
+        event.soundOption,
+        event.vibrationPattern,
+        event.customSoundPath,
+      );
 
       AndroidNotificationSound? snd;
       if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
@@ -131,20 +153,22 @@ class NotificationService {
         event.title,
         tz.TZDateTime.from(event.alarmDateTime!, tz.local),
         NotificationDetails(
-          android: AndroidNotificationDetails(channelId, '캘린더 알림',
-              importance:
-                  mode == AlarmMode.silent ? Importance.low : Importance.high,
-              priority: Priority.high,
-              sound: snd,
-              playSound:
-                  snd != null || event.soundOption == NotificationSound.system,
-              enableVibration: vib != null,
-              vibrationPattern: vib,
-              silent: mode == AlarmMode.silent),
+          android: AndroidNotificationDetails(
+            channelId,
+            '캘린더 알림',
+            importance:
+                mode == AlarmMode.silent ? Importance.low : Importance.high,
+            priority: Priority.high,
+            sound: snd,
+            playSound:
+                snd != null || event.soundOption == NotificationSound.system,
+            enableVibration: vib != null,
+            vibrationPattern: vib,
+            silent: mode == AlarmMode.silent,
+          ),
         ),
+        // [v4.4.2] uiLocalNotificationDateInterpretation 제거 (^19.x에서 삭제됨)
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
       );
     } catch (e) {
       appLog('[NotifSvc] 알림 스케줄 실패: $e');
@@ -157,22 +181,30 @@ class NotificationService {
   }
 
   static Future<void> showTestNotification(
-      AppSettings settings, AlarmMode testMode) async {
+    AppSettings settings,
+    AlarmMode testMode,
+  ) async {
     if (!_isMobile) return;
     try {
       final mode = settings.globalSilentMode ? AlarmMode.silent : testMode;
-      final channelId = await _ensureChannel(mode, settings.soundOption,
-          settings.vibrationPattern, settings.customSoundPath);
+      final channelId = await _ensureChannel(
+        mode,
+        settings.soundOption,
+        settings.vibrationPattern,
+        settings.customSoundPath,
+      );
 
       AndroidNotificationSound? snd;
       if (mode == AlarmMode.soundOnly || mode == AlarmMode.soundAndVibration) {
         if (settings.soundOption == NotificationSound.custom &&
             settings.customSoundPath != null) {
-          snd =
-              UriAndroidNotificationSound('file://${settings.customSoundPath}');
+          snd = UriAndroidNotificationSound(
+            'file://${settings.customSoundPath}',
+          );
         } else if (settings.soundOption != NotificationSound.system) {
           snd = RawResourceAndroidNotificationSound(
-              settings.soundOption.fileName);
+            settings.soundOption.fileName,
+          );
         }
       }
 
@@ -187,16 +219,19 @@ class NotificationService {
         '🔔 테스트 알림',
         '알림이 이렇게 울립니다.',
         NotificationDetails(
-          android: AndroidNotificationDetails(channelId, '테스트 알림',
-              importance:
-                  mode == AlarmMode.silent ? Importance.low : Importance.high,
-              priority: Priority.high,
-              sound: snd,
-              playSound: snd != null ||
-                  settings.soundOption == NotificationSound.system,
-              enableVibration: vib != null,
-              vibrationPattern: vib,
-              silent: mode == AlarmMode.silent),
+          android: AndroidNotificationDetails(
+            channelId,
+            '테스트 알림',
+            importance:
+                mode == AlarmMode.silent ? Importance.low : Importance.high,
+            priority: Priority.high,
+            sound: snd,
+            playSound:
+                snd != null || settings.soundOption == NotificationSound.system,
+            enableVibration: vib != null,
+            vibrationPattern: vib,
+            silent: mode == AlarmMode.silent,
+          ),
         ),
       );
     } catch (e) {
@@ -211,8 +246,11 @@ class NotificationService {
       await Permission.storage.request();
     }
     await Permission.notification.request();
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android =
+        _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
     await android?.requestExactAlarmsPermission();
   }
 }

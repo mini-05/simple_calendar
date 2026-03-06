@@ -1,6 +1,7 @@
-// v4.3.9
+// v4.4.2
+// ics_service.dart
 // lib/services/ics_service.dart
-// [Web 호환성 패치] 웹에서는 백업/복원 기능을 안전하게 건너뜀 (크래시 방지)
+// [v4.4.2] share_plus ^12.x API 교체: Share.shareXFiles → SharePlus.instance.share
 
 import 'dart:io' show File;
 import 'dart:convert';
@@ -20,7 +21,6 @@ class IcsService {
       .replaceAll('\r', '');
 
   static Future<void> exportToIcs(List<CalendarEvent> events) async {
-    // 💡 [Web 차단벽] 웹 브라우저는 로컬 디스크 접근 불가
     if (kIsWeb) {
       appLog('[ICS] 웹 환경에서는 아직 ICS 내보내기를 지원하지 않습니다.');
       return;
@@ -30,20 +30,22 @@ class IcsService {
       final buf = StringBuffer();
       buf.writeln('BEGIN:VCALENDAR');
       buf.writeln('VERSION:2.0');
-      buf.writeln('PRODID:-//My Calendar App//v4.3.9//EN');
+      buf.writeln('PRODID:-//My Calendar App//v4.4.2//EN');
 
       String formatDt(DateTime d) =>
           '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
 
-      for (final e
-          in events.where((e) => !e.isHoliday && !e.isRecurrenceInstance)) {
+      for (final e in events.where(
+        (e) => !e.isHoliday && !e.isRecurrenceInstance,
+      )) {
         buf.writeln('BEGIN:VEVENT');
         buf.writeln('UID:${e.id}@mycalendar.app');
         buf.writeln('SUMMARY:${_escapeIcsText(e.title)}');
         if (e.isAllDay) {
           buf.writeln('DTSTART;VALUE=DATE:${formatDt(e.startDt)}');
           buf.writeln(
-              'DTEND;VALUE=DATE:${formatDt(e.endDt.add(const Duration(days: 1)))}');
+            'DTEND;VALUE=DATE:${formatDt(e.endDt.add(const Duration(days: 1)))}',
+          );
         } else {
           final sT = (e.startTime ?? '00:00').replaceAll(':', '');
           final eT = (e.endTime ?? '00:00').replaceAll(':', '');
@@ -54,9 +56,7 @@ class IcsService {
           final r = e.recurrenceRule!;
           final freq = r.frequency.name.toUpperCase();
           var rrule = 'RRULE:FREQ=$freq;INTERVAL=${r.interval}';
-          if (r.until != null) {
-            rrule += ';UNTIL=${formatDt(r.until!)}';
-          }
+          if (r.until != null) rrule += ';UNTIL=${formatDt(r.until!)}';
           buf.writeln(rrule);
         }
         buf.writeln('END:VEVENT');
@@ -71,7 +71,11 @@ class IcsService {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/$fileName');
       await file.writeAsString(buf.toString());
-      await Share.shareXFiles([XFile(file.path)], text: '내 캘린더 ics 백업 파일입니다.');
+
+      // [v4.4.2] share_plus ^12.x API 교체
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path)], text: '내 캘린더 ics 백업 파일입니다.'),
+      );
     } catch (e) {
       appLog('ICS 내보내기 실패: $e');
     }
@@ -85,9 +89,7 @@ class IcsService {
 
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.any);
-      if (result == null || result.files.single.path == null) {
-        return false;
-      }
+      if (result == null || result.files.single.path == null) return false;
 
       final content = await File(result.files.single.path!).readAsString();
       final imported = <CalendarEvent>[];
@@ -106,15 +108,17 @@ class IcsService {
             final sT = _parseTime(dtStart);
             final eT = dtEnd != null ? _parseTime(dtEnd) : sT;
             if (sD != null) {
-              imported.add(CalendarEvent(
-                id: EventStorage.generateId(),
-                title: summary,
-                date: _fmtDateStr(sD),
-                endDate: eD != null ? _fmtDateStr(eD) : null,
-                isAllDay: sT == null,
-                startTime: sT,
-                endTime: eT,
-              ));
+              imported.add(
+                CalendarEvent(
+                  id: EventStorage.generateId(),
+                  title: summary,
+                  date: _fmtDateStr(sD),
+                  endDate: eD != null ? _fmtDateStr(eD) : null,
+                  isAllDay: sT == null,
+                  startTime: sT,
+                  endTime: eT,
+                ),
+              );
             }
           }
           inEvent = false;
@@ -149,7 +153,8 @@ class IcsService {
     v = v.replaceAll('\r', '').replaceAll('Z', '');
     if (v.length >= 8) {
       return DateTime.tryParse(
-          '${v.substring(0, 4)}-${v.substring(4, 6)}-${v.substring(6, 8)}');
+        '${v.substring(0, 4)}-${v.substring(4, 6)}-${v.substring(6, 8)}',
+      );
     }
     return null;
   }
