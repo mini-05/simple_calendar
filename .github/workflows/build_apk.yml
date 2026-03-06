@@ -48,7 +48,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version: '3.27.4'
+          # 💡 [수정됨] Dart SDK 3.7.0 이상을 자동으로 충족하도록 특정 flutter-version 지정 줄을 삭제했습니다.
 
       - name: Get dependencies
         run: flutter pub get
