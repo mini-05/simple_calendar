@@ -12,7 +12,7 @@ part of 'models.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
-mixin _$CalendarEvent {
+mixin _$CalendarEvent implements DiagnosticableTreeMixin {
 
  int get id; String get title; String get date; String? get endDate; String? get startTime; String? get endTime; int? get colorValue; bool get isAllDay; bool get isAlarmOn; AlarmMinutes get alarmMinutes; AlarmMode get eventAlarmMode; NotificationSound get soundOption; VibrationPattern get vibrationPattern; String? get customSoundPath; RecurrenceRule? get recurrenceRule; int? get parentId; bool get isRecurrenceInstance;
 /// Create a copy of CalendarEvent
@@ -22,6 +22,12 @@ mixin _$CalendarEvent {
 $CalendarEventCopyWith<CalendarEvent> get copyWith => _$CalendarEventCopyWithImpl<CalendarEvent>(this as CalendarEvent, _$identity);
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'CalendarEvent'))
+    ..add(DiagnosticsProperty('id', id))..add(DiagnosticsProperty('title', title))..add(DiagnosticsProperty('date', date))..add(DiagnosticsProperty('endDate', endDate))..add(DiagnosticsProperty('startTime', startTime))..add(DiagnosticsProperty('endTime', endTime))..add(DiagnosticsProperty('colorValue', colorValue))..add(DiagnosticsProperty('isAllDay', isAllDay))..add(DiagnosticsProperty('isAlarmOn', isAlarmOn))..add(DiagnosticsProperty('alarmMinutes', alarmMinutes))..add(DiagnosticsProperty('eventAlarmMode', eventAlarmMode))..add(DiagnosticsProperty('soundOption', soundOption))..add(DiagnosticsProperty('vibrationPattern', vibrationPattern))..add(DiagnosticsProperty('customSoundPath', customSoundPath))..add(DiagnosticsProperty('recurrenceRule', recurrenceRule))..add(DiagnosticsProperty('parentId', parentId))..add(DiagnosticsProperty('isRecurrenceInstance', isRecurrenceInstance));
+}
 
 @override
 bool operator ==(Object other) {
@@ -33,7 +39,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,id,title,date,endDate,startTime,endTime,colorValue,isAllDay,isAlarmOn,alarmMinutes,eventAlarmMode,soundOption,vibrationPattern,customSoundPath,recurrenceRule,parentId,isRecurrenceInstance);
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'CalendarEvent(id: $id, title: $title, date: $date, endDate: $endDate, startTime: $startTime, endTime: $endTime, colorValue: $colorValue, isAllDay: $isAllDay, isAlarmOn: $isAlarmOn, alarmMinutes: $alarmMinutes, eventAlarmMode: $eventAlarmMode, soundOption: $soundOption, vibrationPattern: $vibrationPattern, customSoundPath: $customSoundPath, recurrenceRule: $recurrenceRule, parentId: $parentId, isRecurrenceInstance: $isRecurrenceInstance)';
 }
 
@@ -221,7 +227,7 @@ return $default(_that.id,_that.title,_that.date,_that.endDate,_that.startTime,_t
 /// @nodoc
 
 
-class _CalendarEvent extends CalendarEvent {
+class _CalendarEvent extends CalendarEvent with DiagnosticableTreeMixin {
   const _CalendarEvent({required this.id, required this.title, required this.date, this.endDate, this.startTime, this.endTime, this.colorValue, this.isAllDay = false, this.isAlarmOn = true, this.alarmMinutes = AlarmMinutes.none, this.eventAlarmMode = AlarmMode.soundAndVibration, this.soundOption = NotificationSound.system, this.vibrationPattern = VibrationPattern.heartbeat, this.customSoundPath, this.recurrenceRule, this.parentId, this.isRecurrenceInstance = false}): super._();
   
 
@@ -250,6 +256,12 @@ class _CalendarEvent extends CalendarEvent {
 _$CalendarEventCopyWith<_CalendarEvent> get copyWith => __$CalendarEventCopyWithImpl<_CalendarEvent>(this, _$identity);
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'CalendarEvent'))
+    ..add(DiagnosticsProperty('id', id))..add(DiagnosticsProperty('title', title))..add(DiagnosticsProperty('date', date))..add(DiagnosticsProperty('endDate', endDate))..add(DiagnosticsProperty('startTime', startTime))..add(DiagnosticsProperty('endTime', endTime))..add(DiagnosticsProperty('colorValue', colorValue))..add(DiagnosticsProperty('isAllDay', isAllDay))..add(DiagnosticsProperty('isAlarmOn', isAlarmOn))..add(DiagnosticsProperty('alarmMinutes', alarmMinutes))..add(DiagnosticsProperty('eventAlarmMode', eventAlarmMode))..add(DiagnosticsProperty('soundOption', soundOption))..add(DiagnosticsProperty('vibrationPattern', vibrationPattern))..add(DiagnosticsProperty('customSoundPath', customSoundPath))..add(DiagnosticsProperty('recurrenceRule', recurrenceRule))..add(DiagnosticsProperty('parentId', parentId))..add(DiagnosticsProperty('isRecurrenceInstance', isRecurrenceInstance));
+}
 
 @override
 bool operator ==(Object other) {
@@ -261,7 +273,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,id,title,date,endDate,startTime,endTime,colorValue,isAllDay,isAlarmOn,alarmMinutes,eventAlarmMode,soundOption,vibrationPattern,customSoundPath,recurrenceRule,parentId,isRecurrenceInstance);
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'CalendarEvent(id: $id, title: $title, date: $date, endDate: $endDate, startTime: $startTime, endTime: $endTime, colorValue: $colorValue, isAllDay: $isAllDay, isAlarmOn: $isAlarmOn, alarmMinutes: $alarmMinutes, eventAlarmMode: $eventAlarmMode, soundOption: $soundOption, vibrationPattern: $vibrationPattern, customSoundPath: $customSoundPath, recurrenceRule: $recurrenceRule, parentId: $parentId, isRecurrenceInstance: $isRecurrenceInstance)';
 }
 

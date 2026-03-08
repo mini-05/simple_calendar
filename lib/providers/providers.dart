@@ -1,10 +1,7 @@
-// v4.4.4
+// v4.4.9
 // lib/providers/providers.dart
-// [v4.4.4] AlarmService 별도 클래스 분리 및 공휴일 Isolate 연산 캐싱 최적화
-
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart'
-    show kIsWeb, compute, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'; // 💡 필수: Isolate 및 debugPrint 지원
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_protector/screen_protector.dart';
 import '../models/models.dart';
@@ -31,7 +28,6 @@ List<CalendarEvent> _expandRecurringIsolate(Map<String, dynamic> args) {
       result.add(e);
       continue;
     }
-    // 💡 [개선] from, to를 명시적으로 주입하여 무한루프를 방지하는 구조 연동
     final dates = e.recurrenceRule!.expand(e.startDt, from: min, to: max);
     for (final d in dates) {
       final dur = e.endDt.difference(e.startDt);
@@ -49,7 +45,6 @@ List<CalendarEvent> _expandRecurringIsolate(Map<String, dynamic> args) {
   return result;
 }
 
-// ── 알람 서비스 분리 (책임 분산) ──────────────────────────────────────
 class AlarmService {
   static Future<void> scheduleForEvent({
     required CalendarEvent event,
@@ -140,48 +135,61 @@ class CalendarState {
 
 class CalendarNotifier extends Notifier<CalendarState> {
   DateTime _windowCenter = DateTime.now();
-
-  // 💡 [개선] 공휴일 캐싱 변수 도입
   List<CalendarEvent>? _cachedHolidays;
   int? _cachedHolidayYear;
 
   @override
   CalendarState build() {
     _init();
-    return CalendarState(focusedDay: DateTime.now());
+    final now = DateTime.now();
+    return CalendarState(focusedDay: now, selectedDay: now);
   }
 
   Future<void> _init() async {
-    final results = await Future.wait([
-      AppSettingsStorage.load(),
-      EventStorage.loadAll(),
-    ]);
+    try {
+      final results = await Future.wait([
+        AppSettingsStorage.load(),
+        EventStorage.loadAll(),
+      ]);
 
-    AppSettings settings = results[0] as AppSettings;
-    final events = results[1] as List<CalendarEvent>;
+      AppSettings settings = results[0] as AppSettings;
+      final events = results[1] as List<CalendarEvent>;
 
-    final isFirstRun = await AppSettingsStorage.isFirstRun();
-    if (isFirstRun) {
-      final defaultTheme =
-          (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
-              ? AppTheme.apple
-              : AppTheme.samsung;
-      settings = settings.copyWith(currentTheme: defaultTheme);
-      await AppSettingsStorage.save(settings);
-    }
-
-    state = state.copyWith(settings: settings);
-
-    if (!kIsWeb) {
-      if (settings.preventCapture) {
-        await ScreenProtector.preventScreenshotOn();
-      } else {
-        await ScreenProtector.preventScreenshotOff();
+      final isFirstRun = await AppSettingsStorage.isFirstRun();
+      if (isFirstRun) {
+        final defaultTheme =
+            (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+                ? AppTheme.apple
+                : AppTheme.samsung;
+        settings = settings.copyWith(currentTheme: defaultTheme);
+        await AppSettingsStorage.save(settings);
       }
-    }
 
-    await NotificationService.initNotifications();
-    await _rebuildIndex(events, firstLoad: true);
+      state = state.copyWith(settings: settings);
+
+      if (!kIsWeb) {
+        try {
+          if (settings.preventCapture) {
+            await ScreenProtector.preventScreenshotOn();
+          } else {
+            await ScreenProtector.preventScreenshotOff();
+          }
+        } catch (e) {
+          debugPrint('ScreenProtector Error: $e');
+        }
+      }
+
+      try {
+        await NotificationService.initNotifications();
+      } catch (e) {
+        debugPrint('Notification Init Error: $e');
+      }
+
+      await _rebuildIndex(events, firstLoad: true);
+    } catch (e) {
+      debugPrint('Critical Init Error: $e');
+      state = state.copyWith(isLoading: false);
+    }
   }
 
   Future<void> _rebuildIndex(
@@ -192,7 +200,6 @@ class CalendarNotifier extends Notifier<CalendarState> {
     final maxDate = DateTime(_windowCenter.year, _windowCenter.month + 13, 0);
     final currentYear = _windowCenter.year;
 
-    // 💡 [개선] 캐시 히트 검사 (중복 계산 방지)
     final needHolidayRefresh =
         _cachedHolidays == null ||
         _cachedHolidayYear != currentYear ||
@@ -214,7 +221,6 @@ class CalendarNotifier extends Notifier<CalendarState> {
       'maxDate': maxDate,
     });
 
-    // 병렬 처리의 이점을 살리면서 캐시까지 적용
     final isolateResults = await Future.wait([holidaysFuture, expandFuture]);
     final allHolidays = isolateResults[0];
     final expanded = isolateResults[1];
@@ -338,28 +344,22 @@ class CalendarNotifier extends Notifier<CalendarState> {
   Future<void> addEvent(CalendarEvent event) async {
     final updated = <CalendarEvent>[...state.masterEvents, event];
     await EventStorage.saveAll(updated);
-    await AlarmService.scheduleForEvent(
-      event: event,
-      settings: state.settings,
-    ); // 책임 위임
+    await AlarmService.scheduleForEvent(event: event, settings: state.settings);
     await _rebuildIndex(updated);
   }
 
   Future<void> updateEvent(CalendarEvent event) async {
-    await AlarmService.cancelForEvent(event.id); // 책임 위임
+    await AlarmService.cancelForEvent(event.id);
     final idx = state.masterEvents.indexWhere((e) => e.id == event.id);
     final updated = <CalendarEvent>[...state.masterEvents];
     if (idx != -1) updated[idx] = event;
     await EventStorage.saveAll(updated);
-    await AlarmService.scheduleForEvent(
-      event: event,
-      settings: state.settings,
-    ); // 책임 위임
+    await AlarmService.scheduleForEvent(event: event, settings: state.settings);
     await _rebuildIndex(updated);
   }
 
   Future<void> deleteEvent(int id) async {
-    await AlarmService.cancelForEvent(id); // 책임 위임
+    await AlarmService.cancelForEvent(id);
     final updated = state.masterEvents.where((e) => e.id != id).toList();
     await EventStorage.saveAll(updated);
     await _rebuildIndex(updated);
@@ -415,10 +415,14 @@ class CalendarNotifier extends Notifier<CalendarState> {
     state = state.copyWith(settings: settings);
 
     if (!kIsWeb && prev.preventCapture != settings.preventCapture) {
-      if (settings.preventCapture) {
-        await ScreenProtector.preventScreenshotOn();
-      } else {
-        await ScreenProtector.preventScreenshotOff();
+      try {
+        if (settings.preventCapture) {
+          await ScreenProtector.preventScreenshotOn();
+        } else {
+          await ScreenProtector.preventScreenshotOff();
+        }
+      } catch (e) {
+        debugPrint('ScreenProtector Error on update: $e');
       }
     }
 
@@ -431,7 +435,7 @@ class CalendarNotifier extends Notifier<CalendarState> {
     await AlarmService.rescheduleAll(
       events: state.masterEvents,
       settings: settings,
-    ); // 책임 위임
+    );
   }
 
   Future<void> exportIcs() async => IcsService.exportToIcs(state.masterEvents);

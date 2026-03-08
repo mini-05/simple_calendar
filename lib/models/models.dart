@@ -1,8 +1,8 @@
-// v4.4.7
+// v4.5.0
 // lib/models/models.dart
 // ignore_for_file: avoid_print
 
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart'; // 💡 필수: debugPrint 및 Freezed 디버깅 지원
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'models.freezed.dart';
@@ -95,7 +95,7 @@ enum VibrationPattern {
   const VibrationPattern({required this.label, required this.pattern});
   final String label;
   final List<int> pattern;
-  dynamic get patternInt64 => Int64List.fromList(pattern);
+  Int64List get patternInt64 => Int64List.fromList(pattern);
 }
 
 enum AlarmMinutes {
@@ -190,7 +190,7 @@ class RecurrenceRule {
     }
 
     if (count >= maxExpansions) {
-      print('[RecurrenceRule] 경고: 최대 확장 한도 도달 (무한루프 방지 작동)');
+      debugPrint('[RecurrenceRule] 경고: 최대 확장 한도 도달 (무한루프 방지 작동)');
     }
     return result;
   }
@@ -352,7 +352,6 @@ class AppSettings {
 // ── CalendarEvent ────────────────────────────────────────────────
 
 @freezed
-// 💡 [수정] abstract 키워드를 추가하여 플러터 분석기가 혼동하지 않도록 방어막을 쳤습니다!
 abstract class CalendarEvent with _$CalendarEvent {
   const CalendarEvent._();
 
@@ -438,9 +437,7 @@ abstract class CalendarEvent with _$CalendarEvent {
   }
 
   bool get isHoliday => id < 0;
-
   DateTime get startDt => _safeParse(date);
-
   DateTime get endDt => _safeParse(endDate ?? date);
 
   bool get isMultiDay =>
