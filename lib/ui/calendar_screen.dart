@@ -1,9 +1,11 @@
-// v4.4.3
+// v4.4.4
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
 // [v4.4.3] 테마 변경 시 페이지 컨트롤러 파괴 방지 (위젯 트리 통일)
 // [v4.4.3] 일정 리스트뷰 Overscroll 시 패널 닫기 제스처 연동 (사용성 극강 개선)
 // [v4.4.3] 달력 셀(Tile) 전체 영역 터치 인식되도록 HitTestBehavior.opaque 적용
+// [v4.4.4] Timer 기반 mounted 체크 도입하여 권한 요청 시 메모리 누수 원천 차단
+import 'dart:async'; // 💡 [추가] Timer 사용을 위한 import
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +32,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   bool _isPanelOpen = false;
   double _panelHeight = 0;
 
+  // 💡 [추가] 타이머 참조 변수
+  Timer? _permissionTimer;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -46,15 +51,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final focused = ref.read(calendarProvider).focusedDay;
     _pageCtrl = PageController(initialPage: _monthToPage(focused));
 
+    // 💡 [수정] 타이머를 할당하고 위젯 생존(mounted) 여부를 체킹하도록 변경
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 600), () {
-        NotificationService.requestPermissions();
+      _permissionTimer = Timer(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          NotificationService.requestPermissions();
+        }
       });
     });
   }
 
   @override
   void dispose() {
+    // 💡 [추가] 위젯 파괴 시 타이머도 확실하게 종료하여 메모리 누수 차단
+    _permissionTimer?.cancel();
     _pageCtrl.dispose();
     super.dispose();
   }
@@ -455,8 +465,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             ? _buildArrowCalendar(st, notifier, th)
             : _buildSwipeCalendar(st, notifier, th);
 
-    // 💡 [이슈1 완벽 해결] 테마 구조(hasRoundedCard)가 바뀌어도 PageView가 파괴되지 않도록
-    // 위젯 트리의 구조를 <Expanded - Padding - Container>로 동일하게 고정하고 속성값만 변경합니다.
     return Expanded(
       child: Padding(
         padding:
@@ -635,7 +643,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               final date = first.subtract(Duration(days: offset - (w * 7 + d)));
               return Expanded(
                 child: GestureDetector(
-                  // 💡 [이슈3 완벽 해결] 빈 공간(투명 영역)을 터치해도 인식하도록 HitTestBehavior.opaque 추가!
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
                     _onDaySelected(date, month, notifier);
@@ -679,7 +686,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       }
     }
 
-    // 💡 [이슈3 완벽 해결 보강] 전체 영역 터치 인식을 위해 Container(color: Colors.transparent) 껍데기 씌우기
     return Container(
       color: Colors.transparent,
       child: Stack(
@@ -780,7 +786,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       );
     }
     return ListView.builder(
-      // 💡 [이슈2 보조] 리스트가 짧아도 항상 스크롤(Overscroll) 이벤트를 발생시켜 패널 닫기를 유도합니다.
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       itemCount: st.selectedEvents.length,
@@ -1020,10 +1025,8 @@ class _PanelDragWrapperState extends State<_PanelDragWrapper>
       left: 0,
       right: 0,
       height: widget.panelHeight,
-      // 💡 [이슈2 완벽 해결] 패널 안의 스크롤 뷰(ListView)에서 발생하는 제스처를 감청합니다!
       child: NotificationListener<ScrollNotification>(
         onNotification: (ScrollNotification info) {
-          // 리스트가 최상단일 때 + 쓸어내리는 힘이 발생하면 -> 패널 닫기 액션으로 힘을 넘겨줍니다.
           if (info is OverscrollNotification &&
               info.overscroll < 0 &&
               info.dragDetails != null) {
@@ -1034,12 +1037,10 @@ class _PanelDragWrapperState extends State<_PanelDragWrapper>
               info.dragDetails!.delta.dy > 0) {
             _onDragUpdate(info.dragDetails!);
           } else if (info is ScrollEndNotification) {
-            // 패널이 어중간하게 열려있을 때 손을 떼면 스냅(Snap) 애니메이션 실행
             if (_currentBottom > 0 && _currentBottom < widget.panelHeight) {
               _onDragEnd(DragEndDetails(primaryVelocity: 0));
             }
           }
-          // false를 반환하여 일반적인 리스트 스크롤도 방해받지 않도록 합니다.
           return false;
         },
         child: GestureDetector(

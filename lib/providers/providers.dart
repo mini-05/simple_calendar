@@ -1,13 +1,12 @@
-// v4.4.2
-// providers.dart
+// v4.4.4
 // lib/providers/providers.dart
-// [v4.4.2] Riverpod 3.x 마이그레이션 및 캡처 방지 로직 적용
+// [v4.4.4] AlarmService 별도 클래스 분리 및 공휴일 Isolate 연산 캐싱 최적화
 
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show kIsWeb, compute, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:screen_protector/screen_protector.dart'; // 💡 [신규 추가됨] 화면 캡처 방지 패키지
+import 'package:screen_protector/screen_protector.dart';
 import '../models/models.dart';
 import '../services/services.dart';
 import '../theme/app_theme.dart';
@@ -32,6 +31,7 @@ List<CalendarEvent> _expandRecurringIsolate(Map<String, dynamic> args) {
       result.add(e);
       continue;
     }
+    // 💡 [개선] from, to를 명시적으로 주입하여 무한루프를 방지하는 구조 연동
     final dates = e.recurrenceRule!.expand(e.startDt, from: min, to: max);
     for (final d in dates) {
       final dur = e.endDt.difference(e.startDt);
@@ -47,6 +47,45 @@ List<CalendarEvent> _expandRecurringIsolate(Map<String, dynamic> args) {
     }
   }
   return result;
+}
+
+// ── 알람 서비스 분리 (책임 분산) ──────────────────────────────────────
+class AlarmService {
+  static Future<void> scheduleForEvent({
+    required CalendarEvent event,
+    required AppSettings settings,
+  }) async {
+    if (event.isHoliday || event.isRecurrenceInstance) return;
+    if (event.alarmDateTime == null) return;
+    if (!event.isAlarmOn) return;
+    if (event.alarmDateTime!.isBefore(DateTime.now())) return;
+
+    await NotificationService.scheduleEventAlarm(
+      event: event,
+      settings: settings,
+    );
+  }
+
+  static Future<void> cancelForEvent(int eventId) async {
+    await NotificationService.cancelAlarm(eventId);
+  }
+
+  static Future<void> rescheduleAll({
+    required List<CalendarEvent> events,
+    required AppSettings settings,
+  }) async {
+    for (final e in events) {
+      if (e.isHoliday || e.isRecurrenceInstance) continue;
+      if (e.alarmDateTime == null) continue;
+      if (e.alarmDateTime!.isBefore(DateTime.now())) continue;
+
+      if (e.isAlarmOn) {
+        await scheduleForEvent(event: e, settings: settings);
+      } else {
+        await cancelForEvent(e.id);
+      }
+    }
+  }
 }
 
 class CalendarState {
@@ -102,6 +141,10 @@ class CalendarState {
 class CalendarNotifier extends Notifier<CalendarState> {
   DateTime _windowCenter = DateTime.now();
 
+  // 💡 [개선] 공휴일 캐싱 변수 도입
+  List<CalendarEvent>? _cachedHolidays;
+  int? _cachedHolidayYear;
+
   @override
   CalendarState build() {
     _init();
@@ -129,7 +172,6 @@ class CalendarNotifier extends Notifier<CalendarState> {
 
     state = state.copyWith(settings: settings);
 
-    // 💡 [신규 추가됨] 앱 시작 시 캡처 방지 설정 적용
     if (!kIsWeb) {
       if (settings.preventCapture) {
         await ScreenProtector.preventScreenshotOn();
@@ -148,11 +190,23 @@ class CalendarNotifier extends Notifier<CalendarState> {
   }) async {
     final minDate = DateTime(_windowCenter.year, _windowCenter.month - 12, 1);
     final maxDate = DateTime(_windowCenter.year, _windowCenter.month + 13, 0);
+    final currentYear = _windowCenter.year;
 
-    final holidaysFuture = compute(_generateHolidaysIsolate, {
-      'minDate': minDate,
-      'maxDate': maxDate,
-    });
+    // 💡 [개선] 캐시 히트 검사 (중복 계산 방지)
+    final needHolidayRefresh =
+        _cachedHolidays == null ||
+        _cachedHolidayYear != currentYear ||
+        firstLoad;
+
+    Future<List<CalendarEvent>> holidaysFuture;
+    if (needHolidayRefresh) {
+      holidaysFuture = compute(_generateHolidaysIsolate, {
+        'minDate': minDate,
+        'maxDate': maxDate,
+      });
+    } else {
+      holidaysFuture = Future.value(_cachedHolidays!);
+    }
 
     final expandFuture = compute(_expandRecurringIsolate, {
       'events': master,
@@ -160,9 +214,15 @@ class CalendarNotifier extends Notifier<CalendarState> {
       'maxDate': maxDate,
     });
 
+    // 병렬 처리의 이점을 살리면서 캐시까지 적용
     final isolateResults = await Future.wait([holidaysFuture, expandFuture]);
     final allHolidays = isolateResults[0];
     final expanded = isolateResults[1];
+
+    if (needHolidayRefresh) {
+      _cachedHolidays = allHolidays;
+      _cachedHolidayYear = currentYear;
+    }
 
     final holidayDates = <String>{};
     for (final h in allHolidays) {
@@ -278,32 +338,28 @@ class CalendarNotifier extends Notifier<CalendarState> {
   Future<void> addEvent(CalendarEvent event) async {
     final updated = <CalendarEvent>[...state.masterEvents, event];
     await EventStorage.saveAll(updated);
-    if (event.alarmDateTime != null && event.isAlarmOn) {
-      await NotificationService.scheduleEventAlarm(
-        event: event,
-        settings: state.settings,
-      );
-    }
+    await AlarmService.scheduleForEvent(
+      event: event,
+      settings: state.settings,
+    ); // 책임 위임
     await _rebuildIndex(updated);
   }
 
   Future<void> updateEvent(CalendarEvent event) async {
-    await NotificationService.cancelAlarm(event.id);
+    await AlarmService.cancelForEvent(event.id); // 책임 위임
     final idx = state.masterEvents.indexWhere((e) => e.id == event.id);
     final updated = <CalendarEvent>[...state.masterEvents];
     if (idx != -1) updated[idx] = event;
     await EventStorage.saveAll(updated);
-    if (event.alarmDateTime != null && event.isAlarmOn) {
-      await NotificationService.scheduleEventAlarm(
-        event: event,
-        settings: state.settings,
-      );
-    }
+    await AlarmService.scheduleForEvent(
+      event: event,
+      settings: state.settings,
+    ); // 책임 위임
     await _rebuildIndex(updated);
   }
 
   Future<void> deleteEvent(int id) async {
-    await NotificationService.cancelAlarm(id);
+    await AlarmService.cancelForEvent(id); // 책임 위임
     final updated = state.masterEvents.where((e) => e.id != id).toList();
     await EventStorage.saveAll(updated);
     await _rebuildIndex(updated);
@@ -336,13 +392,14 @@ class CalendarNotifier extends Notifier<CalendarState> {
     final updated = <CalendarEvent>[...state.masterEvents];
     updated[idx] = toggled;
     await EventStorage.saveAll(updated);
+
     if (toggled.isAlarmOn) {
-      await NotificationService.scheduleEventAlarm(
+      await AlarmService.scheduleForEvent(
         event: toggled,
         settings: state.settings,
       );
     } else {
-      await NotificationService.cancelAlarm(toggled.id);
+      await AlarmService.cancelForEvent(toggled.id);
     }
     await _rebuildIndex(updated);
   }
@@ -357,7 +414,6 @@ class CalendarNotifier extends Notifier<CalendarState> {
     final prev = state.settings;
     state = state.copyWith(settings: settings);
 
-    // 💡 [신규 추가됨] 설정 화면에서 토글 스위치를 바꿨을 때 즉시 적용
     if (!kIsWeb && prev.preventCapture != settings.preventCapture) {
       if (settings.preventCapture) {
         await ScreenProtector.preventScreenshotOn();
@@ -372,25 +428,10 @@ class CalendarNotifier extends Notifier<CalendarState> {
             settings.currentTheme.themeData.showTextInside;
 
     if (needsRebuild) await _rebuildIndex(state.masterEvents);
-    await _rescheduleAllAlarms();
-  }
-
-  Future<void> _rescheduleAllAlarms() async {
-    for (final e in state.masterEvents) {
-      if (e.isHoliday || e.isRecurrenceInstance || e.alarmDateTime == null) {
-        continue;
-      }
-      if (e.alarmDateTime!.isAfter(DateTime.now())) {
-        if (e.isAlarmOn) {
-          await NotificationService.scheduleEventAlarm(
-            event: e,
-            settings: state.settings,
-          );
-        } else {
-          await NotificationService.cancelAlarm(e.id);
-        }
-      }
-    }
+    await AlarmService.rescheduleAll(
+      events: state.masterEvents,
+      settings: settings,
+    ); // 책임 위임
   }
 
   Future<void> exportIcs() async => IcsService.exportToIcs(state.masterEvents);

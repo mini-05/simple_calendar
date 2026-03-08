@@ -5,7 +5,8 @@ name: Build Flutter APK and AAB
 
 on:
   push:
-    branches: [ "main", "master" ]
+    # 💡 [수정됨] 여기에 "test" 브랜치를 추가했습니다!
+    branches: [ "main", "master", "test" ]
 
 permissions:
   contents: write
@@ -109,9 +110,9 @@ jobs:
       - name: Rename APK and AAB
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/My_Calendar_v${APP_VERSION}.apk
+              build/app/outputs/flutter-apk/My_Calendar_v${APP_VERSION}.apk
           mv build/app/outputs/bundle/release/app-release.aab \
-             build/app/outputs/bundle/release/My_Calendar_v${APP_VERSION}.aab
+              build/app/outputs/bundle/release/My_Calendar_v${APP_VERSION}.aab
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
