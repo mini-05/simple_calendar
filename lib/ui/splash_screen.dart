@@ -1,44 +1,17 @@
-// v4.5.0
+// v4.5.3
 // lib/ui/splash_screen.dart
-// ignore_for_file: curly_braces_in_flow_control_structures
-// [v4.5.0] FlipSplash 리얼 플립 시계 애니메이션 적용 완료
+// [v4.5.3] 스플래시 2.2초 지속 타이밍 고정 및 파일 구조 분리 최적화
 
 import 'dart:math' as math;
-import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
 import 'calendar_screen.dart';
 
-// ── ISO 8601 주차 계산 ────────────────────────────────────────────
-int _isoWeek(DateTime d) {
-  final startOfYear = DateTime(d.year, 1, 1);
-  final dayOfYear = d.difference(startOfYear).inDays + 1;
-  final weekNum = ((dayOfYear - d.weekday + 10) / 7).floor();
-  return weekNum < 1 ? _isoWeek(DateTime(d.year - 1, 12, 31)) : weekNum;
-}
-
-// ── 날짜 포맷 헬퍼 ───────────────────────────────────────────────
-const _weekdayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const _monthLabels = [
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC',
-];
-String _weekday(DateTime d) => _weekdayLabels[d.weekday - 1];
-String _month(DateTime d) => _monthLabels[d.month - 1];
-String _weekStr(DateTime d) => '${_isoWeek(d)}주차';
+// 💡 분리된 유틸과 플립 위젯 임포트
+import 'splash/splash_utils.dart';
+import 'splash/flip_splash.dart';
 
 // ════════════════════════════════════════════════════════════════
 // SplashScreen — 진입점
@@ -52,6 +25,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
+  // 💡 정확히 2.2초 동안 머뭅니다. 이 시간 안에 flip_splash에서 2.0초의 애니메이션이 재생됩니다.
   static const _splashDuration = Duration(milliseconds: 2200);
 
   @override
@@ -93,274 +67,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// A · FlipSplash — 플립 시계 스타일 (리얼 플립 애니메이션 적용)
-// ════════════════════════════════════════════════════════════════
-
-class FlipSplash extends StatefulWidget {
-  const FlipSplash({super.key});
-
-  @override
-  State<FlipSplash> createState() => _FlipSplashState();
-}
-
-class _FlipSplashState extends State<FlipSplash>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _flip;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _flip = CurvedAnimation(parent: _ctrl, curve: Curves.bounceOut);
-    _ctrl.forward();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    const bg = Color(0xFF1E88E5);
-
-    return Scaffold(
-      backgroundColor: bg,
-      body: Stack(
-        children: [
-          Positioned(
-            top: 56,
-            right: 28,
-            child: Row(
-              children: [
-                _iconBtn(Icons.add),
-                const SizedBox(width: 10),
-                _iconBtn(Icons.search),
-              ],
-            ),
-          ),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _RealFlipClock(
-                  digit: now.day.toString().padLeft(2, '0'),
-                  animation: _flip,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '${_weekday(now)}  ${_month(now)}',
-                  style: const TextStyle(
-                    fontFamily: 'CourierPrime',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    letterSpacing: 7,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _weekStr(now),
-                  style: TextStyle(
-                    fontFamily: 'CourierPrime',
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: .55),
-                    letterSpacing: 3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(bottom: 0, left: 0, right: 0, child: _bottomBar()),
-        ],
-      ),
-    );
-  }
-
-  Widget _iconBtn(IconData icon) => Container(
-    width: 36,
-    height: 36,
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .18),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Icon(icon, color: Colors.white, size: 18),
-  );
-
-  Widget _bottomBar() => Container(
-    height: 72,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Colors.transparent, Colors.black.withValues(alpha: .15)],
-      ),
-    ),
-    padding: const EdgeInsets.symmetric(horizontal: 24),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.wb_sunny_outlined,
-              color: Colors.white.withValues(alpha: .65),
-              size: 18,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '맑음',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: .65),
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            Container(
-              width: 90,
-              height: 7,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .22),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: .7,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.check,
-              color: Colors.white.withValues(alpha: .75),
-              size: 16,
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-class _RealFlipClock extends StatelessWidget {
-  final String digit;
-  final Animation<double> animation;
-
-  const _RealFlipClock({required this.digit, required this.animation});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final val = animation.value;
-        final upperFold = (val < 0.5) ? val * 2 : 1.0;
-        final lowerFold = (val > 0.5) ? (1.0 - val) * 2 : 1.0;
-
-        return SizedBox(
-          width: 180,
-          height: 180,
-          child: Stack(
-            children: [
-              _buildHalfDigit(digit, isTop: true, isBackground: true),
-              _buildHalfDigit(digit, isTop: false, isBackground: true),
-
-              if (val <= 0.5)
-                Transform(
-                  alignment: Alignment.bottomCenter,
-                  transform:
-                      Matrix4.identity()
-                        ..setEntry(3, 2, 0.002)
-                        ..rotateX(math.pi / 2 * upperFold),
-                  child: _buildHalfDigit(digit, isTop: true),
-                ),
-
-              if (val > 0.5)
-                Transform(
-                  alignment: Alignment.topCenter,
-                  transform:
-                      Matrix4.identity()
-                        ..setEntry(3, 2, 0.002)
-                        ..rotateX(-math.pi / 2 * lowerFold),
-                  child: _buildHalfDigit(digit, isTop: false),
-                ),
-
-              Align(
-                alignment: Alignment.center,
-                child: Container(
-                  height: 2,
-                  width: double.infinity,
-                  color: const Color(0xFF1565C0),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildHalfDigit(
-    String text, {
-    required bool isTop,
-    bool isBackground = false,
-  }) {
-    return ClipRect(
-      child: Align(
-        alignment: isTop ? Alignment.topCenter : Alignment.bottomCenter,
-        heightFactor: 0.5,
-        child: Container(
-          width: 180,
-          height: 180,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color:
-                isBackground
-                    ? Colors.transparent
-                    : const Color(0xFF1E88E5).withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Text(
-            text,
-            style: TextStyle(
-              fontFamily: 'BebasNeue',
-              fontSize: 160,
-              color:
-                  isBackground
-                      ? Colors.white.withValues(alpha: 0.5)
-                      : Colors.white,
-              height: 1.0,
-              letterSpacing: -6,
-              shadows: const [Shadow(blurRadius: 10, color: Color(0x33000000))],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
 // B · CircleSplash — 영롱한 액체 그라데이션
 // ════════════════════════════════════════════════════════════════
-
 class CircleSplash extends StatefulWidget {
   const CircleSplash({super.key});
-
   @override
   State<CircleSplash> createState() => _CircleSplashState();
 }
@@ -377,7 +87,6 @@ class _CircleSplashState extends State<CircleSplash>
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat(reverse: true);
-
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3000),
@@ -394,22 +103,19 @@ class _CircleSplashState extends State<CircleSplash>
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-
     return Scaffold(
       backgroundColor: const Color(0xFF020208),
       body: Stack(
         children: [
           ImageFiltered(
-            imageFilter: _noBlurOnWeb(),
+            imageFilter: noBlurOnWeb(),
             child: AnimatedBuilder(
               animation: _ctrl,
-              builder: (_, __) {
-                final t = _ctrl.value;
-                return CustomPaint(
-                  size: MediaQuery.of(context).size,
-                  painter: _LiquidGradientPainter(t),
-                );
-              },
+              builder:
+                  (_, __) => CustomPaint(
+                    size: MediaQuery.of(context).size,
+                    painter: _LiquidGradientPainter(_ctrl.value),
+                  ),
             ),
           ),
           Positioned(
@@ -432,7 +138,7 @@ class _CircleSplashState extends State<CircleSplash>
             ),
           ),
           Center(
-            child: _GlowPulse(
+            child: GlowPulse(
               color: Colors.white,
               ctrl: _pulseCtrl,
               child: _dateColumn(now),
@@ -458,7 +164,7 @@ class _CircleSplashState extends State<CircleSplash>
       ),
       const SizedBox(height: 6),
       Text(
-        _weekday(now),
+        getWeekday(now),
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 20,
@@ -469,7 +175,7 @@ class _CircleSplashState extends State<CircleSplash>
       ),
       const SizedBox(height: 4),
       Text(
-        _weekStr(now),
+        getWeekStr(now),
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 13,
@@ -484,7 +190,6 @@ class _CircleSplashState extends State<CircleSplash>
 class _LiquidGradientPainter extends CustomPainter {
   final double t;
   _LiquidGradientPainter(this.t);
-
   @override
   void paint(Canvas canvas, Size size) {
     final nodes = [
@@ -529,7 +234,6 @@ class _LiquidGradientPainter extends CustomPainter {
         size.width * .28,
       ),
     ];
-
     for (final n in nodes) {
       canvas.drawCircle(n.$1, n.$2, Paint()..shader = n.$3);
     }
@@ -560,10 +264,8 @@ class _LiquidGradientPainter extends CustomPainter {
 // ════════════════════════════════════════════════════════════════
 // C · ClassicSplash — 4개 링 독자 회전
 // ════════════════════════════════════════════════════════════════
-
 class ClassicSplash extends StatefulWidget {
   const ClassicSplash({super.key});
-
   @override
   State<ClassicSplash> createState() => _ClassicSplashState();
 }
@@ -605,7 +307,6 @@ class _ClassicSplashState extends State<ClassicSplash>
     final now = DateTime.now();
     final size = MediaQuery.of(context).size;
     final cx = size.width / 2, cy = size.height / 2;
-
     const ringDefs = [
       (390.0, Color(0xFF03C75A), 2.5),
       (272.0, Color(0xFFFA233B), 2.5),
@@ -622,42 +323,36 @@ class _ClassicSplashState extends State<ClassicSplash>
             final reverse = _specs[i].$2;
             return AnimatedBuilder(
               animation: _ctrls[i],
-              builder: (_, __) {
-                final angle =
-                    (reverse ? -1 : 1) * _ctrls[i].value * 2 * math.pi;
-                return Positioned(
-                  left: cx - dia / 2,
-                  top: cy - dia / 2,
-                  child: Transform.rotate(
-                    angle: angle,
-                    child: CustomPaint(
-                      size: Size(dia, dia),
-                      painter: _ArcPainter(color, stroke),
+              builder:
+                  (_, __) => Positioned(
+                    left: cx - dia / 2,
+                    top: cy - dia / 2,
+                    child: Transform.rotate(
+                      angle: (reverse ? -1 : 1) * _ctrls[i].value * 2 * math.pi,
+                      child: CustomPaint(
+                        size: Size(dia, dia),
+                        painter: _ArcPainter(color, stroke),
+                      ),
                     ),
                   ),
-                );
-              },
             );
           }),
           Center(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 52,
-                    vertical: 28,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: .55),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .08),
-                    ),
-                  ),
-                  child: _dateColumn(now),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 52,
+                  vertical: 28,
                 ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: .55),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .08),
+                  ),
+                ),
+                child: _dateColumn(now),
               ),
             ),
           ),
@@ -682,7 +377,7 @@ class _ClassicSplashState extends State<ClassicSplash>
       ),
       const SizedBox(height: 4),
       Text(
-        _weekday(now),
+        getWeekday(now),
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 17,
@@ -693,7 +388,7 @@ class _ClassicSplashState extends State<ClassicSplash>
       ),
       const SizedBox(height: 4),
       Text(
-        _weekStr(now),
+        getWeekStr(now),
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 12,
@@ -709,7 +404,6 @@ class _ArcPainter extends CustomPainter {
   final Color color;
   final double strokeWidth;
   _ArcPainter(this.color, this.strokeWidth);
-
   @override
   void paint(Canvas canvas, Size size) {
     final r = size.width / 2;
@@ -743,10 +437,8 @@ class _ArcPainter extends CustomPainter {
 // ════════════════════════════════════════════════════════════════
 // D · AstronomicalSplash — 성운 + 글로우 링 + 별빛
 // ════════════════════════════════════════════════════════════════
-
 class AstronomicalSplash extends StatefulWidget {
   const AstronomicalSplash({super.key});
-
   @override
   State<AstronomicalSplash> createState() => _AstronomicalSplashState();
 }
@@ -757,7 +449,6 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
   late final AnimationController _nebCtrl;
   late final AnimationController _pulseCtrl;
   late final AnimationController _starCtrl;
-
   final List<_StarData> _stars = List.generate(45, (_) {
     final rng = math.Random();
     return _StarData(
@@ -809,7 +500,6 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
     final now = DateTime.now();
     final size = MediaQuery.of(context).size;
     final cx = size.width / 2, cy = size.height / 2;
-
     const ringDias = [340.0, 230.0, 410.0];
     const ringColors = [
       Color(0xFFFA233B),
@@ -844,25 +534,22 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
                 reverse = ringReverse[i];
             return AnimatedBuilder(
               animation: _rings[i],
-              builder: (_, __) {
-                final angle =
-                    (reverse ? -1 : 1) * _rings[i].value * 2 * math.pi;
-                return Positioned(
-                  left: cx - dia / 2,
-                  top: cy - dia / 2,
-                  child: Transform.rotate(
-                    angle: angle,
-                    child: CustomPaint(
-                      size: Size(dia, dia),
-                      painter: _GlowRingPainter(color),
+              builder:
+                  (_, __) => Positioned(
+                    left: cx - dia / 2,
+                    top: cy - dia / 2,
+                    child: Transform.rotate(
+                      angle: (reverse ? -1 : 1) * _rings[i].value * 2 * math.pi,
+                      child: CustomPaint(
+                        size: Size(dia, dia),
+                        painter: _GlowRingPainter(color),
+                      ),
                     ),
                   ),
-                );
-              },
             );
           }),
           Center(
-            child: _GlowPulse(
+            child: GlowPulse(
               color: const Color(0xFFFA233B),
               ctrl: _pulseCtrl,
               child: _dateColumn(now),
@@ -892,7 +579,7 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
       ),
       const SizedBox(height: 6),
       Text(
-        _weekday(now),
+        getWeekday(now),
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 20,
@@ -909,7 +596,7 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
       ),
       const SizedBox(height: 4),
       Text(
-        _weekStr(now),
+        getWeekStr(now),
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 13,
@@ -924,7 +611,6 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
 class _NebulaPainter extends CustomPainter {
   final double t;
   _NebulaPainter(this.t);
-
   @override
   void paint(Canvas canvas, Size size) {
     void ellipse(double fx, double fy, double rx, double ry, Color c) {
@@ -948,7 +634,6 @@ class _NebulaPainter extends CustomPainter {
     canvas.translate(size.width / 2, size.height / 2);
     canvas.scale(scale);
     canvas.translate(-size.width / 2, -size.height / 2);
-
     ellipse(
       .30,
       .25,
@@ -980,7 +665,6 @@ class _NebulaPainter extends CustomPainter {
 class _GlowRingPainter extends CustomPainter {
   final Color color;
   _GlowRingPainter(this.color);
-
   @override
   void paint(Canvas canvas, Size size) {
     final r = size.width / 2;
@@ -1026,9 +710,7 @@ class _StarData {
 class _StarsPainter extends CustomPainter {
   final List<_StarData> stars;
   final double t;
-
   _StarsPainter(this.stars, this.t);
-
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.white;
@@ -1038,7 +720,6 @@ class _StarsPainter extends CustomPainter {
       final phase = (t + star.phaseOffset) % 1.0;
       final opacity = 0.08 + 0.92 * math.sin(phase * math.pi);
       final scale = 0.8 + 0.5 * math.sin(phase * math.pi);
-
       paint.color = Colors.white.withValues(alpha: opacity.clamp(0.0, 1.0));
       canvas.drawCircle(Offset(cx, cy), (star.size / 2) * scale, paint);
     }
@@ -1047,46 +728,3 @@ class _StarsPainter extends CustomPainter {
   @override
   bool shouldRepaint(_StarsPainter old) => old.t != t;
 }
-
-// ════════════════════════════════════════════════════════════════
-// 공통 유틸
-// ════════════════════════════════════════════════════════════════
-
-class _GlowPulse extends StatelessWidget {
-  final Widget child;
-  final Color color;
-  final AnimationController ctrl;
-
-  const _GlowPulse({
-    required this.child,
-    required this.color,
-    required this.ctrl,
-  });
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: ctrl,
-    builder: (_, child) {
-      final v = ctrl.value;
-      return Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: .15 + .25 * v),
-              blurRadius: 40 + 40 * v,
-              spreadRadius: 0,
-            ),
-          ],
-        ),
-        child: child,
-      );
-    },
-    child: child,
-  );
-}
-
-ui.ImageFilter _noBlurOnWeb() =>
-    kIsWeb
-        ? ui.ImageFilter.blur(sigmaX: 0.1, sigmaY: 0.1)
-        : ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20);
