@@ -1,6 +1,7 @@
-// v4.5.3
+// v4.5.4
 // gemini_flip_splash.dart
 // lib/ui/splash/flip_splash.dart
+
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'splash_utils.dart';
@@ -20,16 +21,19 @@ class _FlipSplashState extends State<FlipSplash>
   @override
   void initState() {
     super.initState();
-    // 💡 스플래시 총 대기 시간(2.2초)에 맞춰, 2.0초 동안 묵직하고 부드럽게 플립되도록 설정
+    // 💡 애니메이션 시간을 조금 더 여유롭게 주어 플립되는 맛을 살립니다.
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1200),
     );
-    // 애니메이션이 천천히 시작해서 부드럽게 가속하다 감속하며 닫히는 커브
-    _flip = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutCubic);
 
-    // 화면이 뜨자마자 즉시 플립 애니메이션 시작
-    _ctrl.forward();
+    // 💡 [에러 수정] easeOutBounce는 존재하지 않으므로 bounceOut으로 교체
+    _flip = CurvedAnimation(parent: _ctrl, curve: Curves.bounceOut);
+
+    // 💡 [타이밍 최적화] 화면 렌더링 안정화 후 0.4초 뒤 애니메이션 시작 (총 2.2초 대기 동기화)
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) _ctrl.forward();
+    });
   }
 
   @override
@@ -62,7 +66,7 @@ class _FlipSplashState extends State<FlipSplash>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 💡 오늘 날짜가 오늘 날짜 위로 접히는 리얼 플립 위젯
+                // 💡 리얼 플립 시계 효과 위젯 적용
                 _RealFlipClock(
                   digit: now.day.toString().padLeft(2, '0'),
                   animation: _flip,
@@ -170,6 +174,7 @@ class _FlipSplashState extends State<FlipSplash>
   );
 }
 
+// 💡 진정한 플립 애니메이션 컴포넌트
 class _RealFlipClock extends StatelessWidget {
   final String digit;
   final Animation<double> animation;
@@ -181,67 +186,53 @@ class _RealFlipClock extends StatelessWidget {
     return AnimatedBuilder(
       animation: animation,
       builder: (context, child) {
+        // 애니메이션 값 (0.0 -> 1.0)
         final val = animation.value;
-        final isFirstHalf = val < 0.5;
 
-        final topAngle =
-            isFirstHalf ? (val * 2 * (math.pi / 2)) : (math.pi / 2);
-        final bottomAngle =
-            !isFirstHalf
-                ? ((1.0 - (val - 0.5) * 2) * (-math.pi / 2))
-                : (-math.pi / 2);
+        // 위쪽 절반 카드는 0 -> 90도 (절반)까지만 넘어가고 사라짐
+        final upperFold = (val < 0.5) ? val * 2 : 1.0;
 
-        // 💡 디테일: 오늘 날짜 위로 동일한 오늘 날짜가 덮일 때, 입체감을 위해 넘어가는 면에 그림자(어두워짐)를 줍니다.
-        final topDarkness = isFirstHalf ? (val * 2 * 0.35) : 0.0;
-        final bottomDarkness =
-            !isFirstHalf ? ((1.0 - (val - 0.5) * 2) * 0.35) : 0.0;
+        // 아래쪽 절반 카드는 90도에서 대기하다가 90 -> 0도로 착! 하고 떨어짐
+        final lowerFold = (val > 0.5) ? (1.0 - val) * 2 : 1.0;
 
         return SizedBox(
           width: 180,
           height: 180,
           child: Stack(
             children: [
-              // 베이스 뼈대: 온전한 오늘 날짜
+              // 1. (배경) 항상 보이는 온전한 글자 배경
               _buildHalfDigit(digit, isTop: true, isBackground: true),
               _buildHalfDigit(digit, isTop: false, isBackground: true),
 
-              // 접히는 위쪽 절반
-              if (isFirstHalf)
+              // 2. (위쪽 절반 애니메이션) 위에서 90도로 넘어감
+              if (val <= 0.5)
                 Transform(
-                  alignment: Alignment.bottomCenter,
+                  alignment: Alignment.bottomCenter, // 회전축: 정중앙 가로선
+                  transform:
+                      Matrix4.identity()
+                        ..setEntry(3, 2, 0.002) // 원근감
+                        ..rotateX(math.pi / 2 * upperFold), // 0 -> 90도
+                  child: _buildHalfDigit(digit, isTop: true),
+                ),
+
+              // 3. (아래쪽 절반 애니메이션) 90도에서 0도로 착 떨어짐
+              if (val > 0.5)
+                Transform(
+                  alignment: Alignment.topCenter, // 회전축: 정중앙 가로선
                   transform:
                       Matrix4.identity()
                         ..setEntry(3, 2, 0.002)
-                        ..rotateX(topAngle),
-                  child: _buildHalfDigit(
-                    digit,
-                    isTop: true,
-                    darkness: topDarkness,
-                  ),
+                        ..rotateX(-math.pi / 2 * lowerFold), // -90도 -> 0도
+                  child: _buildHalfDigit(digit, isTop: false),
                 ),
 
-              // 떨어지는 아래쪽 절반
-              if (!isFirstHalf)
-                Transform(
-                  alignment: Alignment.topCenter,
-                  transform:
-                      Matrix4.identity()
-                        ..setEntry(3, 2, 0.002)
-                        ..rotateX(bottomAngle),
-                  child: _buildHalfDigit(
-                    digit,
-                    isTop: false,
-                    darkness: bottomDarkness,
-                  ),
-                ),
-
-              // 중앙 절취선
+              // 중앙 절취선 (시계 가운데 갈라진 선)
               Align(
                 alignment: Alignment.center,
                 child: Container(
                   height: 2,
                   width: double.infinity,
-                  color: const Color(0xFF1565C0),
+                  color: Colors.blue[800], // 배경색과 약간 다른 짙은 선
                 ),
               ),
             ],
@@ -251,16 +242,16 @@ class _RealFlipClock extends StatelessWidget {
     );
   }
 
+  // 글자의 위쪽/아래쪽 절반을 잘라내는 헬퍼 위젯
   Widget _buildHalfDigit(
     String text, {
     required bool isTop,
     bool isBackground = false,
-    double darkness = 0.0,
   }) {
     return ClipRect(
       child: Align(
         alignment: isTop ? Alignment.topCenter : Alignment.bottomCenter,
-        heightFactor: 0.5,
+        heightFactor: 0.5, // 💡 핵심: 위아래 정확히 절반만 보이게 자름!
         child: Container(
           width: 180,
           height: 180,
@@ -269,38 +260,22 @@ class _RealFlipClock extends StatelessWidget {
             color:
                 isBackground
                     ? Colors.transparent
-                    : const Color(0xFF1E88E5).withValues(alpha: 0.2),
+                    : Colors.blue[600]?.withValues(alpha: 0.2), // 넘어가는 카드 느낌
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Center(
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    fontFamily: 'BebasNeue',
-                    fontSize: 160,
-                    color:
-                        isBackground
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.white,
-                    height: 1.0,
-                    letterSpacing: -6,
-                    shadows: const [
-                      Shadow(blurRadius: 10, color: Color(0x33000000)),
-                    ],
-                  ),
-                ),
-              ),
-              if (darkness > 0) // 플립될 때 생기는 그림자
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: darkness),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-            ],
+          child: Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'BebasNeue',
+              fontSize: 160,
+              color:
+                  isBackground
+                      ? Colors.white.withValues(alpha: 0.5)
+                      : Colors.white,
+              height: 1.0,
+              letterSpacing: -6,
+              shadows: const [Shadow(blurRadius: 10, color: Color(0x33000000))],
+            ),
           ),
         ),
       ),

@@ -1,6 +1,7 @@
-// v4.5.3
+// v4.5.4
 // gemini_splash_utils.dart
 // lib/ui/splash/splash_utils.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:ui' as ui;

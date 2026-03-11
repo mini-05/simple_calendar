@@ -164,19 +164,26 @@
 * **v4.4.1:**
   * **UX 개선:** 달력 스와이프 모드에서 '오늘' 버튼 클릭 시 끊김 없이 부드럽게 이동하는 `animateToPage` 스르륵 모션 적용. 대체공휴일 명칭 '대체공휴일'로 통일.
   * **프레임 드랍 버그 픽스:** 스플래시 화면에서 달력으로 넘어가는 애니메이션 도중 알림 권한(`Permission`) 시스템 팝업이 호출되어 UI 렌더링 스레드가 멈추는 현상을 `addPostFrameCallback`과 `Future.delayed`로 지연시켜 완벽 해결.
-* **v4.4.2 (현재 버전):**
+* **v4.4.2:**
   * **상태 관리 대공사:** Riverpod 3.x 마이그레이션 (`StateNotifier`, `StateNotifierProvider` ➡️ `Notifier`, `NotifierProvider`로 교체).
   * **보안 및 프라이버시 강화:** `screen_protector` 패키지 연동. 설정(`settings_sheet.dart`)에 '화면 캡처 방지' 토글 스위치를 추가하여 사용자 선택형 네이티브 캡처/녹화 차단 기능 구현 (`models.dart` 및 앱 초기화 로직에 반영).
   * **최신 패키지 대응:** `flutter_local_notifications` 19.x 업데이트(`uiLocalNotificationDateInterpretation` 제거 대응) 및 `share_plus` 12.x 마이그레이션(`SharePlus.instance.share` 적용).
-  * **CI/CD 파이프라인 (GitHub Actions) 정상화:**
-    * `build_apk.yml`에서 구버전 플러터(3.27.4) 고정으로 인한 Dart SDK 버전 충돌(>=3.7.0 요구) 에러를 최신 `stable` 채널 자동화로 해결.
-    * 안드로이드 `desugar_jdk_libs` 버전을 `2.1.5`로 고정 업데이트하여 알림 패키지 충돌 해결.
-    * GitHub Secrets 기반의 Keystore가 없을 경우 자동으로 디버그(Debug) 서명으로 Fallback하여 성공적으로 빌드되도록 안전장치 구축 완료.
+  * **CI/CD 파이프라인 정상화:** GitHub Actions SDK 버전 충돌 해결 및 디버그 폴백(Fallback) 안전장치 적용 완료.
+
+### [안정화 및 스플래시 아키텍처 고도화기]
+* **v4.4.3 ~ v4.4.9:**
+  * **빌드 꼬임 및 에러 완벽 해결:** `models.dart`와 `providers.dart`에서 `flutter/foundation.dart` 임포트 누락으로 발생한 `debugPrint` 미정의 에러 및 Freezed(`models.freezed.dart`) 생성 파일 충돌 에러 완전 클린업.
+  * **초기화 병목 해결:** `providers.dart`의 `_init()` 중 예외 상황 발생 시 8초간 무한 로딩바(Spinner)가 노출되던 현상을 `try-catch` 방어 로직으로 해결하고 앱 구동 즉시 달력이 보이도록 초기 선택일 강제 적용.
+* **v4.5.0 ~ v4.5.3 (현재 버전):**
+  * **리얼 플립(Flip) 시계 애니메이션:** 단순 회전이 아닌 '오늘 날짜'의 위쪽 카드가 90도로 덮이고 아래쪽 카드가 0도로 바닥을 치는(Bounce) 입체적 3D 아날로그 감성 플립 구현 완료. 
+  * **스플래시 타이밍 동기화:** 플립 애니메이션이 진행되는 시간(2.0초)과 스플래시 노출 시간(2.2초)을 완벽히 동기화하여 애니메이션이 씹히는 현상 제거.
+  * **스플래시 코드 모듈화 (God Object 분리):** 비대해진 `splash_screen.dart`를 `splash_screen.dart` (메인 라우터), `splash/flip_splash.dart` (플립 컴포넌트), `splash/splash_utils.dart` (공통 헬퍼) 3가지로 분리하여 유지보수성 극대화.
+  * **앱 아이콘 적용:** `flutter_launcher_icons` 패키지를 도입하여 공식 앱 런처 아이콘 세팅 파이프라인 개통.
 
 ---
 
 ## 🎯 4. 향후 마일스톤 (Upcoming Milestones)
-### [v4.5.0] 홈 화면 위젯 네이티브 연동 및 앱 출시 준비
+### [v4.6.0] 홈 화면 위젯 네이티브 연동 및 앱 출시 준비
 1. **Android 네이티브 위젯:** Kotlin 및 XML 레이아웃을 완성하여 플러터에서 전달하는 날짜/디자인 토큰을 받아 실제 바탕화면 위젯으로 렌더링.
 2. **iOS 네이티브 위젯:** SwiftUI 코드를 작성하여 바탕화면 위젯(App Group 공유) 연동.
 3. **Play Store / App Store 릴리즈:** Keystore 정식 발급 및 스토어 등록용 스크린샷, 텍스트 에셋 준비.
@@ -208,4 +215,4 @@
 * **Riverpod 상태 불변성(Immutability) 검증:** `copyWith` 호출 시 기존 객체를 변형하지 않고 완전히 독립된 주소값(`identical` == false)을 반환하여 정상적인 UI 리빌드를 유발하는지 증명.
 
 ---
-*(End of Context - Version: v4.4.2)*
+*(End of Context - Version: v4.5.3)*

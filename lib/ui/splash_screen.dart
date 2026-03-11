@@ -1,15 +1,16 @@
-// v4.5.3
+// v4.5.4
+// gemini_splash_screen.dart
 // lib/ui/splash_screen.dart
-// [v4.5.3] 스플래시 2.2초 지속 타이밍 고정 및 파일 구조 분리 최적화
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
 import 'calendar_screen.dart';
 
-// 💡 분리된 유틸과 플립 위젯 임포트
+// 💡 분리된 파일 임포트
 import 'splash/splash_utils.dart';
 import 'splash/flip_splash.dart';
 
@@ -25,7 +26,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
-  // 💡 정확히 2.2초 동안 머뭅니다. 이 시간 안에 flip_splash에서 2.0초의 애니메이션이 재생됩니다.
+  // 💡 정확히 2.2초 동안 머뭅니다.
   static const _splashDuration = Duration(milliseconds: 2200);
 
   @override
@@ -69,8 +70,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 // ════════════════════════════════════════════════════════════════
 // B · CircleSplash — 영롱한 액체 그라데이션
 // ════════════════════════════════════════════════════════════════
+
 class CircleSplash extends StatefulWidget {
   const CircleSplash({super.key});
+
   @override
   State<CircleSplash> createState() => _CircleSplashState();
 }
@@ -103,6 +106,7 @@ class _CircleSplashState extends State<CircleSplash>
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+
     return Scaffold(
       backgroundColor: const Color(0xFF020208),
       body: Stack(
@@ -111,11 +115,13 @@ class _CircleSplashState extends State<CircleSplash>
             imageFilter: noBlurOnWeb(),
             child: AnimatedBuilder(
               animation: _ctrl,
-              builder:
-                  (_, __) => CustomPaint(
-                    size: MediaQuery.of(context).size,
-                    painter: _LiquidGradientPainter(_ctrl.value),
-                  ),
+              builder: (_, __) {
+                final t = _ctrl.value;
+                return CustomPaint(
+                  size: MediaQuery.of(context).size,
+                  painter: _LiquidGradientPainter(t),
+                );
+              },
             ),
           ),
           Positioned(
@@ -190,6 +196,7 @@ class _CircleSplashState extends State<CircleSplash>
 class _LiquidGradientPainter extends CustomPainter {
   final double t;
   _LiquidGradientPainter(this.t);
+
   @override
   void paint(Canvas canvas, Size size) {
     final nodes = [
@@ -234,6 +241,7 @@ class _LiquidGradientPainter extends CustomPainter {
         size.width * .28,
       ),
     ];
+
     for (final n in nodes) {
       canvas.drawCircle(n.$1, n.$2, Paint()..shader = n.$3);
     }
@@ -264,8 +272,10 @@ class _LiquidGradientPainter extends CustomPainter {
 // ════════════════════════════════════════════════════════════════
 // C · ClassicSplash — 4개 링 독자 회전
 // ════════════════════════════════════════════════════════════════
+
 class ClassicSplash extends StatefulWidget {
   const ClassicSplash({super.key});
+
   @override
   State<ClassicSplash> createState() => _ClassicSplashState();
 }
@@ -307,6 +317,7 @@ class _ClassicSplashState extends State<ClassicSplash>
     final now = DateTime.now();
     final size = MediaQuery.of(context).size;
     final cx = size.width / 2, cy = size.height / 2;
+
     const ringDefs = [
       (390.0, Color(0xFF03C75A), 2.5),
       (272.0, Color(0xFFFA233B), 2.5),
@@ -323,36 +334,42 @@ class _ClassicSplashState extends State<ClassicSplash>
             final reverse = _specs[i].$2;
             return AnimatedBuilder(
               animation: _ctrls[i],
-              builder:
-                  (_, __) => Positioned(
-                    left: cx - dia / 2,
-                    top: cy - dia / 2,
-                    child: Transform.rotate(
-                      angle: (reverse ? -1 : 1) * _ctrls[i].value * 2 * math.pi,
-                      child: CustomPaint(
-                        size: Size(dia, dia),
-                        painter: _ArcPainter(color, stroke),
-                      ),
+              builder: (_, __) {
+                final angle =
+                    (reverse ? -1 : 1) * _ctrls[i].value * 2 * math.pi;
+                return Positioned(
+                  left: cx - dia / 2,
+                  top: cy - dia / 2,
+                  child: Transform.rotate(
+                    angle: angle,
+                    child: CustomPaint(
+                      size: Size(dia, dia),
+                      painter: _ArcPainter(color, stroke),
                     ),
                   ),
+                );
+              },
             );
           }),
           Center(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 52,
-                  vertical: 28,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: .55),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: .08),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 52,
+                    vertical: 28,
                   ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .55),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: .08),
+                    ),
+                  ),
+                  child: _dateColumn(now),
                 ),
-                child: _dateColumn(now),
               ),
             ),
           ),
@@ -404,6 +421,7 @@ class _ArcPainter extends CustomPainter {
   final Color color;
   final double strokeWidth;
   _ArcPainter(this.color, this.strokeWidth);
+
   @override
   void paint(Canvas canvas, Size size) {
     final r = size.width / 2;
@@ -437,8 +455,10 @@ class _ArcPainter extends CustomPainter {
 // ════════════════════════════════════════════════════════════════
 // D · AstronomicalSplash — 성운 + 글로우 링 + 별빛
 // ════════════════════════════════════════════════════════════════
+
 class AstronomicalSplash extends StatefulWidget {
   const AstronomicalSplash({super.key});
+
   @override
   State<AstronomicalSplash> createState() => _AstronomicalSplashState();
 }
@@ -449,6 +469,7 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
   late final AnimationController _nebCtrl;
   late final AnimationController _pulseCtrl;
   late final AnimationController _starCtrl;
+
   final List<_StarData> _stars = List.generate(45, (_) {
     final rng = math.Random();
     return _StarData(
@@ -500,6 +521,7 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
     final now = DateTime.now();
     final size = MediaQuery.of(context).size;
     final cx = size.width / 2, cy = size.height / 2;
+
     const ringDias = [340.0, 230.0, 410.0];
     const ringColors = [
       Color(0xFFFA233B),
@@ -534,18 +556,21 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
                 reverse = ringReverse[i];
             return AnimatedBuilder(
               animation: _rings[i],
-              builder:
-                  (_, __) => Positioned(
-                    left: cx - dia / 2,
-                    top: cy - dia / 2,
-                    child: Transform.rotate(
-                      angle: (reverse ? -1 : 1) * _rings[i].value * 2 * math.pi,
-                      child: CustomPaint(
-                        size: Size(dia, dia),
-                        painter: _GlowRingPainter(color),
-                      ),
+              builder: (_, __) {
+                final angle =
+                    (reverse ? -1 : 1) * _rings[i].value * 2 * math.pi;
+                return Positioned(
+                  left: cx - dia / 2,
+                  top: cy - dia / 2,
+                  child: Transform.rotate(
+                    angle: angle,
+                    child: CustomPaint(
+                      size: Size(dia, dia),
+                      painter: _GlowRingPainter(color),
                     ),
                   ),
+                );
+              },
             );
           }),
           Center(
@@ -611,6 +636,7 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
 class _NebulaPainter extends CustomPainter {
   final double t;
   _NebulaPainter(this.t);
+
   @override
   void paint(Canvas canvas, Size size) {
     void ellipse(double fx, double fy, double rx, double ry, Color c) {
@@ -634,6 +660,7 @@ class _NebulaPainter extends CustomPainter {
     canvas.translate(size.width / 2, size.height / 2);
     canvas.scale(scale);
     canvas.translate(-size.width / 2, -size.height / 2);
+
     ellipse(
       .30,
       .25,
@@ -665,6 +692,7 @@ class _NebulaPainter extends CustomPainter {
 class _GlowRingPainter extends CustomPainter {
   final Color color;
   _GlowRingPainter(this.color);
+
   @override
   void paint(Canvas canvas, Size size) {
     final r = size.width / 2;
@@ -710,7 +738,9 @@ class _StarData {
 class _StarsPainter extends CustomPainter {
   final List<_StarData> stars;
   final double t;
+
   _StarsPainter(this.stars, this.t);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.white;
@@ -720,6 +750,7 @@ class _StarsPainter extends CustomPainter {
       final phase = (t + star.phaseOffset) % 1.0;
       final opacity = 0.08 + 0.92 * math.sin(phase * math.pi);
       final scale = 0.8 + 0.5 * math.sin(phase * math.pi);
+
       paint.color = Colors.white.withValues(alpha: opacity.clamp(0.0, 1.0));
       canvas.drawCircle(Offset(cx, cy), (star.size / 2) * scale, paint);
     }
