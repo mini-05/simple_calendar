@@ -1,4 +1,4 @@
-// v4.5.5
+// v4.5.6
 // gemini_flip_splash.dart
 // lib/ui/splash/flip_splash.dart
 
@@ -21,16 +21,16 @@ class _FlipSplashState extends State<FlipSplash>
   @override
   void initState() {
     super.initState();
-    // 💡 애니메이션 시간을 조금 더 여유롭게 주어 플립되는 맛을 살립니다. (v4.4.3 원본)
+    // 💡 애니메이션 시간을 조금 더 여유롭게 주어 플립되는 맛을 살립니다.
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
 
-    // 에러를 수정한 bounceOut 유지
+    // 0에서 1까지 부드럽게(끝에서 약간 탄력있게) 변하는 애니메이션
     _flip = CurvedAnimation(parent: _ctrl, curve: Curves.bounceOut);
 
-    // 💡 화면이 렌더링되자마자 즉시 시작! (v4.4.3 동작 완벽 일치)
+    // 화면 렌더링되자마자 즉시 시작
     _ctrl.forward();
   }
 
@@ -172,7 +172,7 @@ class _FlipSplashState extends State<FlipSplash>
   );
 }
 
-// 💡 진정한 플립 애니메이션 컴포넌트 (v4.4.3 디자인 100% 동일)
+// 💡 진정한 플립 애니메이션 컴포넌트
 class _RealFlipClock extends StatelessWidget {
   final String digit;
   final Animation<double> animation;
@@ -198,32 +198,53 @@ class _RealFlipClock extends StatelessWidget {
           child: Stack(
             children: [
               // 1. (배경) 항상 보이는 온전한 글자 배경
-              _buildHalfDigit(digit, isTop: true, isBackground: true),
-              _buildHalfDigit(digit, isTop: false, isBackground: true),
+              // 💡 [버그 픽스] Stack 내부에서 위치가 꼬이지 않도록 위/아래를 명확히 고정합니다.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _buildHalfDigit(digit, isTop: true, isBackground: true),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _buildHalfDigit(digit, isTop: false, isBackground: true),
+              ),
 
               // 2. (위쪽 절반 애니메이션) 위에서 90도로 넘어감
               if (val <= 0.5)
-                Transform(
-                  alignment: Alignment.bottomCenter, // 회전축: 정중앙 가로선
-                  transform:
-                      Matrix4.identity()
-                        ..setEntry(3, 2, 0.002) // 원근감
-                        ..rotateX(math.pi / 2 * upperFold), // 0 -> 90도
-                  child: _buildHalfDigit(digit, isTop: true),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0, // 상단 고정
+                  child: Transform(
+                    alignment: Alignment.bottomCenter, // 회전축: 정중앙 가로선
+                    transform:
+                        Matrix4.identity()
+                          ..setEntry(3, 2, 0.002) // 원근감
+                          ..rotateX(math.pi / 2 * upperFold), // 0 -> 90도
+                    child: _buildHalfDigit(digit, isTop: true),
+                  ),
                 ),
 
               // 3. (아래쪽 절반 애니메이션) 90도에서 0도로 착 떨어짐
               if (val > 0.5)
-                Transform(
-                  alignment: Alignment.topCenter, // 회전축: 정중앙 가로선
-                  transform:
-                      Matrix4.identity()
-                        ..setEntry(3, 2, 0.002)
-                        ..rotateX(-math.pi / 2 * lowerFold), // -90도 -> 0도
-                  child: _buildHalfDigit(digit, isTop: false),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0, // 하단 고정
+                  child: Transform(
+                    alignment: Alignment.topCenter, // 회전축: 정중앙 가로선
+                    transform:
+                        Matrix4.identity()
+                          ..setEntry(3, 2, 0.002)
+                          ..rotateX(-math.pi / 2 * lowerFold), // -90도 -> 0도
+                    child: _buildHalfDigit(digit, isTop: false),
+                  ),
                 ),
 
-              // 중앙 절취선 (v4.4.3 오리지널 색상 유지)
+              // 중앙 절취선
               Align(
                 alignment: Alignment.center,
                 child: Container(
@@ -248,7 +269,7 @@ class _RealFlipClock extends StatelessWidget {
     return ClipRect(
       child: Align(
         alignment: isTop ? Alignment.topCenter : Alignment.bottomCenter,
-        heightFactor: 0.5, // 💡 위아래 정확히 절반
+        heightFactor: 0.5, // 💡 핵심: 위아래 정확히 50% 비율로 자름
         child: Container(
           width: 180,
           height: 180,
@@ -257,9 +278,7 @@ class _RealFlipClock extends StatelessWidget {
             color:
                 isBackground
                     ? Colors.transparent
-                    : Colors.blue[600]?.withValues(
-                      alpha: 0.2,
-                    ), // v4.4.3 오리지널 투명도 유지
+                    : Colors.blue[600]?.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
