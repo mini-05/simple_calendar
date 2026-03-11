@@ -1,10 +1,10 @@
-// v4.5.4
+// v4.5.5
 // gemini_flip_splash.dart
 // lib/ui/splash/flip_splash.dart
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'splash_utils.dart';
+import 'splash_utils.dart'; // 공통 유틸 임포트
 
 class FlipSplash extends StatefulWidget {
   const FlipSplash({super.key});
@@ -21,19 +21,17 @@ class _FlipSplashState extends State<FlipSplash>
   @override
   void initState() {
     super.initState();
-    // 💡 애니메이션 시간을 조금 더 여유롭게 주어 플립되는 맛을 살립니다.
+    // 💡 애니메이션 시간을 조금 더 여유롭게 주어 플립되는 맛을 살립니다. (v4.4.3 원본)
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
 
-    // 💡 [에러 수정] easeOutBounce는 존재하지 않으므로 bounceOut으로 교체
+    // 에러를 수정한 bounceOut 유지
     _flip = CurvedAnimation(parent: _ctrl, curve: Curves.bounceOut);
 
-    // 💡 [타이밍 최적화] 화면 렌더링 안정화 후 0.4초 뒤 애니메이션 시작 (총 2.2초 대기 동기화)
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (mounted) _ctrl.forward();
-    });
+    // 💡 화면이 렌더링되자마자 즉시 시작! (v4.4.3 동작 완벽 일치)
+    _ctrl.forward();
   }
 
   @override
@@ -174,7 +172,7 @@ class _FlipSplashState extends State<FlipSplash>
   );
 }
 
-// 💡 진정한 플립 애니메이션 컴포넌트
+// 💡 진정한 플립 애니메이션 컴포넌트 (v4.4.3 디자인 100% 동일)
 class _RealFlipClock extends StatelessWidget {
   final String digit;
   final Animation<double> animation;
@@ -186,7 +184,6 @@ class _RealFlipClock extends StatelessWidget {
     return AnimatedBuilder(
       animation: animation,
       builder: (context, child) {
-        // 애니메이션 값 (0.0 -> 1.0)
         final val = animation.value;
 
         // 위쪽 절반 카드는 0 -> 90도 (절반)까지만 넘어가고 사라짐
@@ -226,13 +223,13 @@ class _RealFlipClock extends StatelessWidget {
                   child: _buildHalfDigit(digit, isTop: false),
                 ),
 
-              // 중앙 절취선 (시계 가운데 갈라진 선)
+              // 중앙 절취선 (v4.4.3 오리지널 색상 유지)
               Align(
                 alignment: Alignment.center,
                 child: Container(
                   height: 2,
                   width: double.infinity,
-                  color: Colors.blue[800], // 배경색과 약간 다른 짙은 선
+                  color: Colors.blue[800],
                 ),
               ),
             ],
@@ -251,7 +248,7 @@ class _RealFlipClock extends StatelessWidget {
     return ClipRect(
       child: Align(
         alignment: isTop ? Alignment.topCenter : Alignment.bottomCenter,
-        heightFactor: 0.5, // 💡 핵심: 위아래 정확히 절반만 보이게 자름!
+        heightFactor: 0.5, // 💡 위아래 정확히 절반
         child: Container(
           width: 180,
           height: 180,
@@ -260,7 +257,9 @@ class _RealFlipClock extends StatelessWidget {
             color:
                 isBackground
                     ? Colors.transparent
-                    : Colors.blue[600]?.withValues(alpha: 0.2), // 넘어가는 카드 느낌
+                    : Colors.blue[600]?.withValues(
+                      alpha: 0.2,
+                    ), // v4.4.3 오리지널 투명도 유지
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(

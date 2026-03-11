@@ -1,6 +1,7 @@
-// v4.5.4
+// v4.5.5
 // gemini_splash_screen.dart
 // lib/ui/splash_screen.dart
+// ignore_for_file: curly_braces_in_flow_control_structures
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -26,7 +27,6 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
-  // 💡 정확히 2.2초 동안 머뭅니다.
   static const _splashDuration = Duration(milliseconds: 2200);
 
   @override
@@ -90,6 +90,7 @@ class _CircleSplashState extends State<CircleSplash>
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat(reverse: true);
+
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3000),
@@ -112,7 +113,7 @@ class _CircleSplashState extends State<CircleSplash>
       body: Stack(
         children: [
           ImageFiltered(
-            imageFilter: noBlurOnWeb(),
+            imageFilter: noBlurOnWeb(), // 💡 유틸 함수 적용
             child: AnimatedBuilder(
               animation: _ctrl,
               builder: (_, __) {
@@ -145,6 +146,7 @@ class _CircleSplashState extends State<CircleSplash>
           ),
           Center(
             child: GlowPulse(
+              // 💡 유틸 위젯 적용
               color: Colors.white,
               ctrl: _pulseCtrl,
               child: _dateColumn(now),
@@ -170,7 +172,7 @@ class _CircleSplashState extends State<CircleSplash>
       ),
       const SizedBox(height: 6),
       Text(
-        getWeekday(now),
+        getWeekday(now), // 💡 유틸 함수 적용
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 20,
@@ -181,7 +183,7 @@ class _CircleSplashState extends State<CircleSplash>
       ),
       const SizedBox(height: 4),
       Text(
-        getWeekStr(now),
+        getWeekStr(now), // 💡 유틸 함수 적용
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 13,
@@ -394,7 +396,7 @@ class _ClassicSplashState extends State<ClassicSplash>
       ),
       const SizedBox(height: 4),
       Text(
-        getWeekday(now),
+        getWeekday(now), // 💡 유틸 함수 적용
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 17,
@@ -405,7 +407,7 @@ class _ClassicSplashState extends State<ClassicSplash>
       ),
       const SizedBox(height: 4),
       Text(
-        getWeekStr(now),
+        getWeekStr(now), // 💡 유틸 함수 적용
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 12,
@@ -575,6 +577,7 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
           }),
           Center(
             child: GlowPulse(
+              // 💡 유틸 위젯 적용
               color: const Color(0xFFFA233B),
               ctrl: _pulseCtrl,
               child: _dateColumn(now),
@@ -604,7 +607,7 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
       ),
       const SizedBox(height: 6),
       Text(
-        getWeekday(now),
+        getWeekday(now), // 💡 유틸 함수 적용
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 20,
@@ -621,7 +624,7 @@ class _AstronomicalSplashState extends State<AstronomicalSplash>
       ),
       const SizedBox(height: 4),
       Text(
-        getWeekStr(now),
+        getWeekStr(now), // 💡 유틸 함수 적용
         style: TextStyle(
           fontFamily: 'CourierPrime',
           fontSize: 13,

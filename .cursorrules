@@ -10,7 +10,7 @@
   2. `flutter_secure_storage`를 이용한 기기 내 로컬 암호화 저장
   3. 한국 양/음력 공휴일 및 대체공휴일 자동 계산
   4. 개별 일정에 대한 상세 알림 커스터마이징 (소리/진동)
-* **상태 관리:** Riverpod 2.x (`StateNotifierProvider` 기반)
+* **상태 관리:** Riverpod 2.x/3.x (`NotifierProvider` 기반)
 
 ## 🤝 2. AI & 개발자 간의 절대 코딩 규칙 (팀 컨벤션)
 1. **버전 네이밍 규칙:** 버전은 반드시 **`vx.x.x`** 포맷만 사용한다. (`-fix` 같은 꼬리표 절대 금지. 수정 시 마이너/패치 버전을 올린다.)
@@ -19,7 +19,7 @@
    * `curly_braces_in_flow_control_structures`: `if`, `for`, `while` 등 모든 제어문은 코드가 한 줄이더라도 **반드시 중괄호 `{ }`**를 사용하여 블록을 감싼다.
 3. **비동기 타입 엄수:** `Future<void>` 반환 콜백(예: `onSave`)은 반드시 `async`와 `await`를 명시하여 `body_might_complete_normally` 경고를 원천 차단한다.
 4. **패키지명 강제 유지:** 앱의 표시 이름은 "My Calendar"이지만, `build.gradle`이나 `AndroidManifest.xml` 등에 들어가는 패키지명은 무조건 **`simple_calendar`**를 유지한다. (AI 임의 변경 감시)
-5. **파일 헤더 규칙:** 모든 dart 파일 1번째 줄은 `// v실제버전` (예: `// v4.3.9`), 2번째 줄은 작성 AI에 따라 `// claude_파일명.dart` 또는 `// gemini_파일명.dart`, 3번째 줄은 `// lib/경로/파일명.dart`. pubspec.yaml도 1번째 줄에 `# v실제버전` 주석 표기, `version:` 필드는 `x.x.x+y` 형식 유지. (**단, 내용이 실제로 수정될 때만 버전을 갱신한다.**)
+5. **파일 헤더 규칙:** 모든 dart 파일 1번째 줄은 `// v실제버전` (예: `// v4.5.5`), 2번째 줄은 작성 AI에 따라 `// claude_파일명.dart` 또는 `// gemini_파일명.dart`, 3번째 줄은 `// lib/경로/파일명.dart`. pubspec.yaml도 1번째 줄에 `# v실제버전` 주석 표기, `version:` 필드는 `x.x.x+y` 형식 유지. (**단, 내용이 실제로 수정될 때만 버전을 갱신한다.**)
 6. **[Claude 전용] 세션 요약 파일 자동 생성:** Claude는 매 작업 세션 종료 시 반드시 세션 요약 파일을 생성한다.
    * 파일명 형식: `claude_summary_YYYYMMDD_v실제버전.md` (예: `claude_summary_20260228_v4.3.6.md`)
    * 같은 날 같은 버전으로 파일이 이미 존재할 경우 `+빌드번호`를 뒤에 추가 (예: `claude_summary_20260228_v4.3.6+2.md`)
@@ -168,17 +168,22 @@
   * **상태 관리 대공사:** Riverpod 3.x 마이그레이션 (`StateNotifier`, `StateNotifierProvider` ➡️ `Notifier`, `NotifierProvider`로 교체).
   * **보안 및 프라이버시 강화:** `screen_protector` 패키지 연동. 설정(`settings_sheet.dart`)에 '화면 캡처 방지' 토글 스위치를 추가하여 사용자 선택형 네이티브 캡처/녹화 차단 기능 구현 (`models.dart` 및 앱 초기화 로직에 반영).
   * **최신 패키지 대응:** `flutter_local_notifications` 19.x 업데이트(`uiLocalNotificationDateInterpretation` 제거 대응) 및 `share_plus` 12.x 마이그레이션(`SharePlus.instance.share` 적용).
-  * **CI/CD 파이프라인 정상화:** GitHub Actions SDK 버전 충돌 해결 및 디버그 폴백(Fallback) 안전장치 적용 완료.
+  * **CI/CD 파이프라인 (GitHub Actions) 정상화:**
+    * `build_apk.yml`에서 구버전 플러터(3.27.4) 고정으로 인한 Dart SDK 버전 충돌(>=3.7.0 요구) 에러를 최신 `stable` 채널 자동화로 해결.
+    * 안드로이드 `desugar_jdk_libs` 버전을 `2.1.5`로 고정 업데이트하여 알림 패키지 충돌 해결.
+    * GitHub Secrets 기반의 Keystore가 없을 경우 자동으로 디버그(Debug) 서명으로 Fallback하여 성공적으로 빌드되도록 안전장치 구축 완료.
 
 ### [안정화 및 스플래시 아키텍처 고도화기]
-* **v4.4.3 ~ v4.4.9:**
-  * **빌드 꼬임 및 에러 완벽 해결:** `models.dart`와 `providers.dart`에서 `flutter/foundation.dart` 임포트 누락으로 발생한 `debugPrint` 미정의 에러 및 Freezed(`models.freezed.dart`) 생성 파일 충돌 에러 완전 클린업.
-  * **초기화 병목 해결:** `providers.dart`의 `_init()` 중 예외 상황 발생 시 8초간 무한 로딩바(Spinner)가 노출되던 현상을 `try-catch` 방어 로직으로 해결하고 앱 구동 즉시 달력이 보이도록 초기 선택일 강제 적용.
-* **v4.5.0 ~ v4.5.3 (현재 버전):**
-  * **리얼 플립(Flip) 시계 애니메이션:** 단순 회전이 아닌 '오늘 날짜'의 위쪽 카드가 90도로 덮이고 아래쪽 카드가 0도로 바닥을 치는(Bounce) 입체적 3D 아날로그 감성 플립 구현 완료. 
-  * **스플래시 타이밍 동기화:** 플립 애니메이션이 진행되는 시간(2.0초)과 스플래시 노출 시간(2.2초)을 완벽히 동기화하여 애니메이션이 씹히는 현상 제거.
-  * **스플래시 코드 모듈화 (God Object 분리):** 비대해진 `splash_screen.dart`를 `splash_screen.dart` (메인 라우터), `splash/flip_splash.dart` (플립 컴포넌트), `splash/splash_utils.dart` (공통 헬퍼) 3가지로 분리하여 유지보수성 극대화.
-  * **앱 아이콘 적용:** `flutter_launcher_icons` 패키지를 도입하여 공식 앱 런처 아이콘 세팅 파이프라인 개통.
+* **v4.4.3:**
+  * **빌드 꼬임 및 에러 클린업:** `models.dart`와 `providers.dart`에서 `flutter/foundation.dart` 임포트 누락으로 발생한 `debugPrint` 미정의 에러 및 Freezed(`models.freezed.dart`) 생성 파일 충돌 에러 완전 해결.
+  * **초기화 병목 픽스:** `providers.dart`의 `_init()` 중 예외 발생 시 8초간 무한 로딩바(Spinner)가 노출되던 현상을 `try-catch` 방어 로직으로 해결하여 구동 즉시 달력이 보이도록 초기 선택일 강제 적용 완료.
+* **v4.5.0 ~ v4.5.4:**
+  * **리얼 플립 시계 애니메이션 실험:** 다양한 플립 애니메이션 시각 효과와 타이밍을 테스트하고 여러 방식으로 코드 분리를 시도함.
+* **v4.5.5 (현재 버전):**
+  * **플립 애니메이션 완벽 롤백 및 모듈화:** 가장 피드백이 좋았던 **v4.4.3 기반의 "오늘 날짜가 오늘 날짜 위로 접히는" 오리지널 플립 디자인(파란색 반투명 카드, 짙은 절취선, `bounceOut` 효과)으로 100% 롤백 성공.**
+  * **타이밍 및 파일 구조 최적화:** 딜레이 없이 렌더링 즉시(`_ctrl.forward()`) 애니메이션이 부드럽게 재생되도록 복원. 스플래시 메인 파일(`splash_screen.dart`)이 너무 커서 플립 컴포넌트(`splash/flip_splash.dart`)와 공통 유틸(`splash/splash_utils.dart`)로 완전히 동일한 동작을 유지하며 구조적으로 분리.
+  * **GitHub Actions Node.js 버전 경고 픽스:** `build_apk.yml` 워크플로우에 `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` 환경 변수를 추가하여 플러그인의 Node 20 Deprecation 에러 경고를 깔끔하게 소거. `test` 브랜치 트리거 추가.
+  * **앱 아이콘 적용:** `flutter_launcher_icons` 패키지를 도입하여 런처 아이콘 자동 생성 파이프라인 구축.
 
 ---
 
@@ -215,4 +220,4 @@
 * **Riverpod 상태 불변성(Immutability) 검증:** `copyWith` 호출 시 기존 객체를 변형하지 않고 완전히 독립된 주소값(`identical` == false)을 반환하여 정상적인 UI 리빌드를 유발하는지 증명.
 
 ---
-*(End of Context - Version: v4.5.3)*
+*(End of Context - Version: v4.5.5)*

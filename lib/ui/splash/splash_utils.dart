@@ -1,4 +1,4 @@
-// v4.5.4
+// v4.5.5
 // gemini_splash_utils.dart
 // lib/ui/splash/splash_utils.dart
 
