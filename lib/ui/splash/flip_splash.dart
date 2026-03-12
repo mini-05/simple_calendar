@@ -1,4 +1,4 @@
-// v4.5.6
+// v4.5.8
 // gemini_flip_splash.dart
 // lib/ui/splash/flip_splash.dart
 
@@ -21,13 +21,11 @@ class _FlipSplashState extends State<FlipSplash>
   @override
   void initState() {
     super.initState();
-    // 💡 애니메이션 시간을 조금 더 여유롭게 주어 플립되는 맛을 살립니다.
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
 
-    // 0에서 1까지 부드럽게(끝에서 약간 탄력있게) 변하는 애니메이션
     _flip = CurvedAnimation(parent: _ctrl, curve: Curves.bounceOut);
 
     // 화면 렌더링되자마자 즉시 시작
@@ -64,7 +62,6 @@ class _FlipSplashState extends State<FlipSplash>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 💡 리얼 플립 시계 효과 위젯 적용
                 _RealFlipClock(
                   digit: now.day.toString().padLeft(2, '0'),
                   animation: _flip,
@@ -172,7 +169,7 @@ class _FlipSplashState extends State<FlipSplash>
   );
 }
 
-// 💡 진정한 플립 애니메이션 컴포넌트
+// 💡 결함이 완전히 수정된 진정한 플립 애니메이션 컴포넌트
 class _RealFlipClock extends StatelessWidget {
   final String digit;
   final Animation<double> animation;
@@ -186,10 +183,7 @@ class _RealFlipClock extends StatelessWidget {
       builder: (context, child) {
         final val = animation.value;
 
-        // 위쪽 절반 카드는 0 -> 90도 (절반)까지만 넘어가고 사라짐
         final upperFold = (val < 0.5) ? val * 2 : 1.0;
-
-        // 아래쪽 절반 카드는 90도에서 대기하다가 90 -> 0도로 착! 하고 떨어짐
         final lowerFold = (val > 0.5) ? (1.0 - val) * 2 : 1.0;
 
         return SizedBox(
@@ -197,49 +191,51 @@ class _RealFlipClock extends StatelessWidget {
           height: 180,
           child: Stack(
             children: [
-              // 1. (배경) 항상 보이는 온전한 글자 배경
-              // 💡 [버그 픽스] Stack 내부에서 위치가 꼬이지 않도록 위/아래를 명확히 고정합니다.
+              // 1. (배경) 항상 존재하는 온전한 형태의 위/아래 베이스 카드
+              // 이 두 조각이 만나 완벽하게 균일한 '12'를 형성합니다.
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                child: _buildHalfDigit(digit, isTop: true, isBackground: true),
+                child: _buildHalfDigit(digit, isTop: true),
               ),
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: _buildHalfDigit(digit, isTop: false, isBackground: true),
+                child: _buildHalfDigit(digit, isTop: false),
               ),
 
-              // 2. (위쪽 절반 애니메이션) 위에서 90도로 넘어감
-              if (val <= 0.5)
+              // 2. (위쪽 절반 애니메이션) 0도에서 90도로 넘어가는 플립 카드
+              // 💡 [버그 픽스] 애니메이션 시작 전(val == 0.0)에는 겹쳐서 색이 2배로 진해지는 것을 막기 위해 숨깁니다.
+              if (val > 0.0 && val <= 0.5)
                 Positioned(
                   top: 0,
                   left: 0,
-                  right: 0, // 상단 고정
+                  right: 0,
                   child: Transform(
-                    alignment: Alignment.bottomCenter, // 회전축: 정중앙 가로선
+                    alignment: Alignment.bottomCenter,
                     transform:
                         Matrix4.identity()
-                          ..setEntry(3, 2, 0.002) // 원근감
-                          ..rotateX(math.pi / 2 * upperFold), // 0 -> 90도
+                          ..setEntry(3, 2, 0.002)
+                          ..rotateX(math.pi / 2 * upperFold),
                     child: _buildHalfDigit(digit, isTop: true),
                   ),
                 ),
 
-              // 3. (아래쪽 절반 애니메이션) 90도에서 0도로 착 떨어짐
-              if (val > 0.5)
+              // 3. (아래쪽 절반 애니메이션) 90도에서 0도로 떨어지는 플립 카드
+              // 💡 [버그 픽스] 애니메이션 종료 후(val == 1.0)에는 겹쳐서 색이 진해지는 것을 막기 위해 숨깁니다.
+              if (val > 0.5 && val < 1.0)
                 Positioned(
                   bottom: 0,
                   left: 0,
-                  right: 0, // 하단 고정
+                  right: 0,
                   child: Transform(
-                    alignment: Alignment.topCenter, // 회전축: 정중앙 가로선
+                    alignment: Alignment.topCenter,
                     transform:
                         Matrix4.identity()
                           ..setEntry(3, 2, 0.002)
-                          ..rotateX(-math.pi / 2 * lowerFold), // -90도 -> 0도
+                          ..rotateX(-math.pi / 2 * lowerFold),
                     child: _buildHalfDigit(digit, isTop: false),
                   ),
                 ),
@@ -260,39 +256,30 @@ class _RealFlipClock extends StatelessWidget {
     );
   }
 
-  // 글자의 위쪽/아래쪽 절반을 잘라내는 헬퍼 위젯
-  Widget _buildHalfDigit(
-    String text, {
-    required bool isTop,
-    bool isBackground = false,
-  }) {
+  // 💡 [버그 픽스] isBackground 파라미터를 완전히 제거했습니다!
+  // 배경이든 애니메이션 카드든 100% 동일한 하얀색 글자와 파란색 박스를 가집니다.
+  Widget _buildHalfDigit(String text, {required bool isTop}) {
     return ClipRect(
       child: Align(
         alignment: isTop ? Alignment.topCenter : Alignment.bottomCenter,
-        heightFactor: 0.5, // 💡 핵심: 위아래 정확히 50% 비율로 자름
+        heightFactor: 0.5,
         child: Container(
           width: 180,
           height: 180,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color:
-                isBackground
-                    ? Colors.transparent
-                    : Colors.blue[600]?.withValues(alpha: 0.2),
+            color: Colors.blue[600]?.withValues(alpha: 0.2), // 모든 카드가 동일한 배경색
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
             text,
-            style: TextStyle(
+            style: const TextStyle(
               fontFamily: 'BebasNeue',
               fontSize: 160,
-              color:
-                  isBackground
-                      ? Colors.white.withValues(alpha: 0.5)
-                      : Colors.white,
+              color: Colors.white, // 모든 카드가 100% 순백색 글자
               height: 1.0,
               letterSpacing: -6,
-              shadows: const [Shadow(blurRadius: 10, color: Color(0x33000000))],
+              shadows: [Shadow(blurRadius: 10, color: Color(0x33000000))],
             ),
           ),
         ),
