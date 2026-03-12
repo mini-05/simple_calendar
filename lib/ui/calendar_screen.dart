@@ -6,6 +6,7 @@
 // [v4.4.3] 달력 셀(Tile) 전체 영역 터치 인식되도록 HitTestBehavior.opaque 적용
 // [v4.4.4] Timer 기반 mounted 체크 도입하여 권한 요청 시 메모리 누수 원천 차단
 // [v4.5.6] OCP 준수: 모든 모드(화살표/스와이프)에서 날짜 이동 시 즉각 전환되도록 공통 로직(jumpToPage) 적용 및 불필요한 파라미터 삭제
+// [v4.5.6] 버그 픽스: 설정에서 음력 켜기 시 일요일(Sunday)에만 음력 일자가 표시되도록 조건 복원
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -665,7 +666,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     String? customLunarText;
 
-    if (!isOutside && st.settings.showLunarCalendar) {
+    // 💡 [버그 픽스] 일요일(Sunday)에만 음력을 표시하도록 조건 추가
+    if (!isOutside &&
+        st.settings.showLunarCalendar &&
+        day.weekday == DateTime.sunday) {
       customLunarText = DateFormatter.getLunarLabel(day, true);
       if (isSmallScreen &&
           customLunarText != null &&
