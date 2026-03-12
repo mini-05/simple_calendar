@@ -1,11 +1,12 @@
-// v4.4.4
+// v4.5.6
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
 // [v4.4.3] 테마 변경 시 페이지 컨트롤러 파괴 방지 (위젯 트리 통일)
 // [v4.4.3] 일정 리스트뷰 Overscroll 시 패널 닫기 제스처 연동 (사용성 극강 개선)
 // [v4.4.3] 달력 셀(Tile) 전체 영역 터치 인식되도록 HitTestBehavior.opaque 적용
 // [v4.4.4] Timer 기반 mounted 체크 도입하여 권한 요청 시 메모리 누수 원천 차단
-import 'dart:async'; // 💡 [추가] Timer 사용을 위한 import
+// [v4.5.6] OCP 준수: 모든 모드(화살표/스와이프)에서 날짜 이동 시 즉각 전환되도록 공통 로직(jumpToPage) 적용 및 불필요한 파라미터 삭제
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,7 +33,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   bool _isPanelOpen = false;
   double _panelHeight = 0;
 
-  // 💡 [추가] 타이머 참조 변수
   Timer? _permissionTimer;
 
   @override
@@ -51,7 +51,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final focused = ref.read(calendarProvider).focusedDay;
     _pageCtrl = PageController(initialPage: _monthToPage(focused));
 
-    // 💡 [수정] 타이머를 할당하고 위젯 생존(mounted) 여부를 체킹하도록 변경
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _permissionTimer = Timer(const Duration(milliseconds: 600), () {
         if (mounted) {
@@ -63,33 +62,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   @override
   void dispose() {
-    // 💡 [추가] 위젯 파괴 시 타이머도 확실하게 종료하여 메모리 누수 차단
     _permissionTimer?.cancel();
     _pageCtrl.dispose();
     super.dispose();
   }
 
-  void _jumpAndSync(
-    DateTime targetDate,
-    CalendarNotifier notifier,
-    CalendarState st,
-  ) {
+  // 💡 [v4.5.6 수정] OCP 준수. viewMode 검사 로직(if-else) 삭제 및 애니메이션 제거.
+  // 더 이상 CalendarState가 필요하지 않으므로 파라미터(st)를 제거하여 구조를 최적화했습니다.
+  void _jumpAndSync(DateTime targetDate, CalendarNotifier notifier) {
     notifier.jumpToDate(targetDate);
-    if (st.settings.calendarNavMode != CalendarNavMode.arrow) {
+    if (_pageCtrl.hasClients) {
       final targetPage = _monthToPage(targetDate);
-      if (_pageCtrl.hasClients && _pageCtrl.page?.round() != targetPage) {
-        final currentPage = _pageCtrl.page?.round() ?? targetPage;
-        final distance = (currentPage - targetPage).abs();
-        if (distance > 6) {
-          final isForward = targetPage > currentPage;
-          _pageCtrl.jumpToPage(targetPage + (isForward ? -1 : 1));
-        }
-        _pageCtrl.animateToPage(
-          targetPage,
-          duration: const Duration(milliseconds: 450),
-          curve: Curves.easeInOutCubic,
-        );
-      }
+      _pageCtrl.jumpToPage(targetPage);
     }
   }
 
@@ -155,7 +139,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                               st.focusedDay.day.clamp(1, maxDay),
                             );
 
-                            _jumpAndSync(finalDate, notifier, st);
+                            // 💡 [v4.5.6] 불필요한 st 파라미터 제외
+                            _jumpAndSync(finalDate, notifier);
+
                             setState(() {
                               _isPanelOpen = false;
                             });
@@ -376,7 +362,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       padding: const EdgeInsets.only(right: 14, left: 4),
       child: GestureDetector(
         onTap: () {
-          _jumpAndSync(DateTime.now(), notifier, st);
+          // 💡 [v4.5.6] 불필요한 st 파라미터 제외
+          _jumpAndSync(DateTime.now(), notifier);
           setState(() {
             _isPanelOpen = false;
           });
@@ -441,7 +428,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               ),
             );
             if (e != null) {
-              _jumpAndSync(e.startDt, notifier, st);
+              // 💡 [v4.5.6] 불필요한 st 파라미터 제외
+              _jumpAndSync(e.startDt, notifier);
               setState(() {
                 _isPanelOpen = true;
               });
