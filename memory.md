@@ -181,6 +181,14 @@
     3. **평일 공휴일 중복 겹침(제3조①3호) 추가:** 단일 공휴일이 평일에 다른 공휴일과 겹치는 경우도 대체공휴일 생성. 예) 2025 어린이날·부처님오신날(동일 5/5 월)→5/6. 같은 날 중복 산출 방지 로직 포함.
   * **[Claude] 죽은 코드 정리:** `services.dart`의 조건부 export(`ics_service_stub`/`ics_service_io`)로 대체되어 어디에서도 참조되지 않는 미사용 파일 `lib/services/ics_service.dart` 삭제.
 
+### [달력 셀 이벤트 바 UX 개선]
+* **v4.4.5:**
+  * **[Claude] 시간 일정 2줄 표시 (`event_bar.dart`):** 하루 종일이 아니라 시작/종료 시간이 설정된 일정은 달력 셀 첫 날 바에 '시간(윗줄)+제목(아랫줄)' 2줄 형태로 표시. 제목이 시간과 한 줄에서 잘려 보이던 문제 해소. 슬롯 정렬/다중일 연결 유지를 위해 모든 바를 균일 높이(22px)로 통일.
+  * **[Claude] 다중일 일정 바 연결 (`event_bar.dart`, `calendar_tile.dart`, `calendar_screen.dart`):** 며칠간 이어지는 일정의 색상 바가 시작일~종료일까지 끊김 없이 이어지도록 수정.
+    - EventBar: 시작/종료 날에만 좌우 여백·둥근 모서리를 부여하고 중간 날은 셀 가장자리까지 채움.
+    - CalendarTile: 셀 좌우 패딩(1px) 제거하여 이웃 셀 바가 맞닿도록 함.
+    - 화살표 모드: `TableCalendar`의 `CalendarStyle(cellMargin/cellPadding = zero)` 지정으로 셀 간 간격 제거.
+
 ---
 
 ## 🎯 4. 향후 마일스톤 (Upcoming Milestones)

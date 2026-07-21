@@ -1,9 +1,10 @@
-// v4.4.3
+// v4.4.5
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
 // [v4.4.3] 테마 변경 시 페이지 컨트롤러 파괴 방지 (위젯 트리 통일)
 // [v4.4.3] 일정 리스트뷰 Overscroll 시 패널 닫기 제스처 연동 (사용성 극강 개선)
 // [v4.4.3] 달력 셀(Tile) 전체 영역 터치 인식되도록 HitTestBehavior.opaque 적용
+// [v4.4.5] 화살표 모드 셀 마진 제거(CalendarStyle)로 다중일 일정 바 연결
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -516,6 +517,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         onDaySelected: (sel, foc) => _onDaySelected(sel, foc, notifier),
         onPageChanged: (focused) => notifier.onArrowPageChanged(focused),
         eventLoader: (d) => st.eventsByDate[DateFormatter.dateKey(d)] ?? [],
+        // [v4.4.5] 다중일 바 연결: 셀 좌우 여백 제거로 이웃 셀 바와 이어지게 함
+        calendarStyle: const CalendarStyle(
+          cellMargin: EdgeInsets.zero,
+          cellPadding: EdgeInsets.zero,
+        ),
         calendarBuilders: CalendarBuilders(
           dowBuilder: (_, day) {
             Color c = hc.withValues(alpha: 0.6);
