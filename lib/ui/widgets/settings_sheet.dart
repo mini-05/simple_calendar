@@ -1,6 +1,7 @@
-// v4.4.2
+// v4.4.6
 // claude_settings_sheet.dart
 // lib/ui/widgets/settings_sheet.dart
+// [v4.4.6] 긴 일정 제목 줄바꿈 토글 추가
 // ignore_for_file: curly_braces_in_flow_control_structures
 // calendar_screen.dart에서 분리된 앱 설정 바텀시트
 // - 클래스명: _AppSettingsSheet → AppSettingsSheet (public)
@@ -140,6 +141,15 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                   value: _s.showHolidays,
                   onChanged: (v) {
                     _update(_s.copyWith(showHolidays: v));
+                  },
+                ),
+                _switchTile(
+                  icon: Icons.wrap_text,
+                  label: '긴 제목 줄바꿈',
+                  subtitle: '제목이 길면 2줄(시간 표시 시 3줄)로 표시합니다',
+                  value: _s.wrapEventText,
+                  onChanged: (v) {
+                    _update(_s.copyWith(wrapEventText: v));
                   },
                 ),
                 const SizedBox(height: 12),

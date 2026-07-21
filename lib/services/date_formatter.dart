@@ -1,7 +1,9 @@
-// v4.3.6
-// gemini_date_formatter.dart
+// v4.4.6
+// date_formatter.dart
 // lib/services/date_formatter.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
+// [v4.4.6] home_widget_service/splash_screen/calendar_screen에 중복되던
+//   ISO 주차 계산·영문 요일/월 라벨을 이곳으로 통합 (중복 제거)
 
 import 'package:lunar/lunar.dart';
 import '../models/models.dart';
@@ -10,6 +12,43 @@ class DateFormatter {
   static String dateKey(DateTime d) {
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
+
+  // ── 영문 요일/월 라벨 및 ISO 주차 (여러 화면 공용) ──────────────
+  static const _enWeekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  static const _enMonths = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC'
+  ];
+
+  /// 영문 요일 약어 (월요일 시작). 예) 월 → 'MON'
+  static String weekdayEn(DateTime d) => _enWeekdays[d.weekday - 1];
+
+  /// 영문 월 약어. 예) 3월 → 'MAR'
+  static String monthEn(DateTime d) => _enMonths[d.month - 1];
+
+  /// ISO 8601 주차 계산 (월요일 시작).
+  static int isoWeek(DateTime d) {
+    final startOfYear = DateTime(d.year, 1, 1);
+    final dayOfYear = d.difference(startOfYear).inDays + 1;
+    final weekNum = ((dayOfYear - d.weekday + 10) / 7).floor();
+    if (weekNum < 1) {
+      return isoWeek(DateTime(d.year - 1, 12, 31));
+    }
+    return weekNum;
+  }
+
+  /// 'N주차' 형식 주차 라벨.
+  static String weekLabelKo(DateTime d) => '${isoWeek(d)}주차';
 
   static String formatDateKorean(DateTime d) {
     const wd = ['일', '월', '화', '수', '목', '금', '토'];

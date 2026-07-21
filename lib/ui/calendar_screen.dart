@@ -1,10 +1,11 @@
-// v4.4.5
+// v4.4.6
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
 // [v4.4.3] 테마 변경 시 페이지 컨트롤러 파괴 방지 (위젯 트리 통일)
 // [v4.4.3] 일정 리스트뷰 Overscroll 시 패널 닫기 제스처 연동 (사용성 극강 개선)
 // [v4.4.3] 달력 셀(Tile) 전체 영역 터치 인식되도록 HitTestBehavior.opaque 적용
 // [v4.4.5] 화살표 모드 셀 마진 제거(CalendarStyle)로 다중일 일정 바 연결
+// [v4.4.6] 중복 월 라벨 제거(DateFormatter 사용), 줄바꿈 설정 CalendarTile 전달
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -334,20 +335,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     CalendarNotifier notifier,
     CalendarTheme th,
   ) {
-    const monthNames = [
-      'JAN',
-      'FEB',
-      'MAR',
-      'APR',
-      'MAY',
-      'JUN',
-      'JUL',
-      'AUG',
-      'SEP',
-      'OCT',
-      'NOV',
-      'DEC',
-    ];
     final today = DateTime.now();
     final focused = st.focusedDay;
 
@@ -384,7 +371,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  monthNames[today.month - 1],
+                  DateFormatter.monthEn(today),
                   style: TextStyle(
                     fontSize: 7.5,
                     fontWeight: FontWeight.w600,
@@ -700,6 +687,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             isOutside: isOutside,
             isHoliday: st.holidayDates.contains(DateFormatter.dateKey(day)),
             showLunar: false,
+            wrapEventText: st.settings.wrapEventText,
           ),
           if (customLunarText != null)
             Positioned(

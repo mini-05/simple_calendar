@@ -1,9 +1,10 @@
-// v4.4.5
+// v4.4.6
 // claude_calendar_tile.dart
 // lib/ui/widgets/calendar_tile.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
 // [v4.4.5] 다중일 일정 바가 이웃 셀과 끊김 없이 이어지도록 셀 좌우 패딩 제거
 //   (바 좌우 여백은 EventBar가 시작/종료 날에만 부여 → 중간 날은 셀 가장자리까지 채움)
+// [v4.4.6] 긴 제목 줄바꿈 설정(wrapEventText)을 EventBar로 전달
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
@@ -20,6 +21,7 @@ class CalendarTile extends StatelessWidget {
   final bool isOutside;
   final bool isHoliday; // 💡 공휴일 표시 OFF라도 백그라운드 데이터로 전달됨
   final bool showLunar;
+  final bool wrapEventText; // 💡 [v4.4.6] 긴 제목 줄바꿈 표시
   final double? forcedHeight;
 
   const CalendarTile({
@@ -33,6 +35,7 @@ class CalendarTile extends StatelessWidget {
     this.isOutside = false,
     this.isHoliday = false, // 💡 추가됨
     this.showLunar = false,
+    this.wrapEventText = false, // 💡 추가됨
     this.forcedHeight,
   });
 
@@ -151,6 +154,7 @@ class CalendarTile extends StatelessWidget {
                 events: _events,
                 slotMap: slotMap,
                 primaryAccent: th.primaryAccent,
+                wrapText: wrapEventText,
               ),
           ],
         ),

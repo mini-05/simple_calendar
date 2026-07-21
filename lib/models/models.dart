@@ -1,5 +1,6 @@
-// v4.4.2
+// v4.4.6
 // lib/models/models.dart
+// [v4.4.6] AppSettings.wrapEventText 추가 (긴 일정 제목 2줄/시간표기 시 3줄 표시)
 
 import 'dart:typed_data';
 
@@ -223,6 +224,7 @@ class AppSettings {
   final WidgetTheme dynamicWidgetTheme;
   final bool showSplash;
   final bool preventCapture; // 💡 [신규 추가됨] 캡처 방지 옵션 변수
+  final bool wrapEventText; // 💡 [v4.4.5] 긴 일정 제목 줄바꿈 표시
 
   const AppSettings({
     this.showLunarCalendar = false,
@@ -239,6 +241,7 @@ class AppSettings {
     this.dynamicWidgetTheme = WidgetTheme.flip,
     this.showSplash = true,
     this.preventCapture = true, // 💡 기본값: 캡처 방지 켜짐
+    this.wrapEventText = false, // 💡 기본값: 한 줄 표시
   });
 
   AlarmMode get effectiveMode {
@@ -273,6 +276,7 @@ class AppSettings {
       'dynamicWidgetTheme': dynamicWidgetTheme.index,
       'showSplash': showSplash,
       'preventCapture': preventCapture, // 💡 추가
+      'wrapEventText': wrapEventText, // 💡 추가
     };
   }
 
@@ -312,6 +316,7 @@ class AppSettings {
       ),
       showSplash: j['showSplash'] ?? true,
       preventCapture: j['preventCapture'] ?? true, // 💡 추가
+      wrapEventText: j['wrapEventText'] ?? false, // 💡 추가
     );
   }
 
@@ -331,6 +336,7 @@ class AppSettings {
     WidgetTheme? dynamicWidgetTheme,
     bool? showSplash,
     bool? preventCapture, // 💡 추가
+    bool? wrapEventText, // 💡 추가
   }) {
     return AppSettings(
       showLunarCalendar: showLunarCalendar ?? this.showLunarCalendar,
@@ -348,6 +354,7 @@ class AppSettings {
       dynamicWidgetTheme: dynamicWidgetTheme ?? this.dynamicWidgetTheme,
       showSplash: showSplash ?? this.showSplash,
       preventCapture: preventCapture ?? this.preventCapture, // 💡 추가
+      wrapEventText: wrapEventText ?? this.wrapEventText, // 💡 추가
     );
   }
 }

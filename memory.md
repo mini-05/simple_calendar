@@ -189,6 +189,12 @@
     - CalendarTile: 셀 좌우 패딩(1px) 제거하여 이웃 셀 바가 맞닿도록 함.
     - 화살표 모드: `TableCalendar`의 `CalendarStyle(cellMargin/cellPadding = zero)` 지정으로 셀 간 간격 제거.
 
+### [이벤트 바 표시 옵션 및 중복 코드 정리]
+* **v4.4.6:**
+  * **[Claude] 코드 중복 정리:** `home_widget_service.dart`·`splash_screen.dart`·`calendar_screen.dart`에 각각 중복 구현되어 있던 ISO 주차 계산(`_isoWeek`)·영문 요일/월 라벨(`MON~SUN`, `JAN~DEC`)을 `DateFormatter`의 공용 헬퍼(`isoWeek`, `weekdayEn`, `monthEn`, `weekLabelKo`)로 통합.
+  * **[Claude] 시간 일정 바 스타일 변경 (`event_bar.dart`):** 시작/종료 시간이 표시되는 일정은 배경색 채움 없이 **왼쪽 색상 바 + 어두운 글자**로 표시(밝은 셀 배경 대응). 하루 종일/다중일 밴드는 기존 색상 채움 유지.
+  * **[Claude] 긴 제목 줄바꿈 설정 추가 (`models.dart`, `settings_sheet.dart`, `calendar_tile.dart`, `event_bar.dart`):** `AppSettings.wrapEventText`(기본 false) 신설. 켜면 제목이 길 때 2줄, 시간 표기 일정은 3줄(시간 1줄+제목 2줄)까지 표시. 슬롯 정렬 및 다중일 바 연결 유지를 위해 바 높이는 설정값에 따라 균일(22px↔34px)하게 적용.
+
 ---
 
 ## 🎯 4. 향후 마일스톤 (Upcoming Milestones)
