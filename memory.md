@@ -195,6 +195,19 @@
   * **[Claude] 시간 일정 바 스타일 변경 (`event_bar.dart`):** 시작/종료 시간이 표시되는 일정은 배경색 채움 없이 **왼쪽 색상 바 + 어두운 글자**로 표시(밝은 셀 배경 대응). 하루 종일/다중일 밴드는 기존 색상 채움 유지.
   * **[Claude] 긴 제목 줄바꿈 설정 추가 (`models.dart`, `settings_sheet.dart`, `calendar_tile.dart`, `event_bar.dart`):** `AppSettings.wrapEventText`(기본 false) 신설. 켜면 제목이 길 때 2줄, 시간 표기 일정은 3줄(시간 1줄+제목 2줄)까지 표시. 슬롯 정렬 및 다중일 바 연결 유지를 위해 바 높이는 설정값에 따라 균일(22px↔34px)하게 적용.
 
+### [artifact-design 스킬 적용: 디자인 토큰 도입]
+* **v4.4.7:**
+  * **[Claude] Anthropic `artifact-design` 스킬 원칙 적용:** 기존 `CalendarTheme` 디자인 시스템을 **덮어쓰지 않고 빈틈만 채우는(Fill gaps, don't override)** 방식으로 디자인 토큰 레이어 신설.
+  * **디자인 토큰(`lib/theme/design_tokens.dart` 신규):**
+    - `AppRadius`/`AppSpace`/`AppType`: 제각각이던 반경·간격·폰트 크기를 하나의 스케일로 정돈.
+    - `AppNeutral`(+`CalendarThemeTokens` 확장): **'선택된 뉴트럴'** — 순수 회색(`Colors.grey`, `black54`, `grey[100]`) 대신 각 테마 액센트 색조를 아주 옅게(채도 0.04~0.06) 머금은 회색을 계산해 제공. `(accent, isDark)`만으로 산출되어 `CalendarTheme`이 없는 위젯에서도 재사용.
+  * **적용 화면:**
+    - `event_bar.dart`: 시간 일정 스트립 글자색을 일정 색에서 파생한 선택된 뉴트럴로.
+    - `event_editor.dart`: 입력 필드/타일 채움, 구분선, 힌트/취소 텍스트를 토큰 뉴트럴로.
+    - `settings_sheet.dart`: 타일 배경·보조 텍스트·드래그 핸들을 토큰 뉴트럴로.
+    - `calendar_tile.dart`: 외부(다른 달) 날짜 텍스트를 토큰 뉴트럴로.
+  * ⚠️ 이 세션 환경엔 Flutter SDK가 없어 시각 결과는 실기기 확인 필요. 변경은 layout 구조를 바꾸지 않는 1:1 색상 치환 위주로 안전하게 적용.
+
 ---
 
 ## 🎯 4. 향후 마일스톤 (Upcoming Milestones)

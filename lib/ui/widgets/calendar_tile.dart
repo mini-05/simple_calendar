@@ -1,13 +1,15 @@
-// v4.4.6
+// v4.4.7
 // claude_calendar_tile.dart
 // lib/ui/widgets/calendar_tile.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
 // [v4.4.5] 다중일 일정 바가 이웃 셀과 끊김 없이 이어지도록 셀 좌우 패딩 제거
 //   (바 좌우 여백은 EventBar가 시작/종료 날에만 부여 → 중간 날은 셀 가장자리까지 채움)
 // [v4.4.6] 긴 제목 줄바꿈 설정(wrapEventText)을 EventBar로 전달
+// [v4.4.7] artifact-design 토큰: 외부 날짜 텍스트를 선택된 뉴트럴로
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../services/date_formatter.dart';
 import 'event_bar.dart';
 
@@ -46,7 +48,7 @@ class CalendarTile extends StatelessWidget {
 
   Color _textColor() {
     if (isSelected) return Colors.white;
-    if (isOutside) return th.isDark ? Colors.white24 : Colors.grey[400]!;
+    if (isOutside) return th.isDark ? Colors.white24 : th.tFaint;
     if (day.weekday == DateTime.sunday || isHoliday)
       return Colors.redAccent; // 💡 이벤트 여부와 무관하게 isHoliday 판별
     if (day.weekday == DateTime.saturday) return Colors.blueAccent;

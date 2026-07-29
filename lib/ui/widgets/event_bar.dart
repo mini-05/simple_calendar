@@ -1,4 +1,4 @@
-// v4.4.6
+// v4.4.7
 // claude_event_bar.dart
 // lib/ui/widgets/event_bar.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
@@ -8,6 +8,8 @@
 // [v4.4.6] 시간이 표시되는 일정은 배경색 없이 왼쪽 색상 바만 표시(어두운 글자).
 // [v4.4.6] 긴 제목 줄바꿈 설정(wrapText): 제목 2줄(시간 표기 시 3줄) 표시.
 //   슬롯 정렬/다중일 연결을 위해 바 높이는 설정에 따라 균일하게 유지됨.
+// [v4.4.7] artifact-design 토큰: 시간 일정 글자색을 순수 회색 대신
+//   '일정 색에서 파생한 선택된 뉴트럴'로 (색 정체성 유지 + 가독성).
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import '../../services/date_formatter.dart';
@@ -19,9 +21,28 @@ class EventBar {
   static double barHeight(bool wrap) => wrap ? 34.0 : 22.0;
   static double slotHeight(bool wrap) => barHeight(wrap) + _barMargin;
 
-  // 시간 일정(배경 없는 스타일)의 어두운 글자색 — showTextInside 테마는 밝은 셀 배경 사용
-  static const Color _stripTitleColor = Color(0xFF333333);
-  static const Color _stripTimeColor = Color(0xFF777777);
+  // 시간 일정(배경 없는 스타일)의 글자색은 순수 회색 대신 '일정 색에서 파생한
+  // 선택된 뉴트럴'을 사용 — 각 일정의 색조를 옅게 머금은 어두운 톤으로, 밝은 셀
+  // 배경에서 가독성을 유지하면서 색 정체성을 함께 전달한다. (artifact-design 원칙)
+  static Color _stripTitleColor(Color base) {
+    final hsl = HSLColor.fromColor(base);
+    return HSLColor.fromAHSL(
+      1,
+      hsl.hue,
+      (hsl.saturation * 0.55).clamp(0.0, 0.5),
+      0.26,
+    ).toColor();
+  }
+
+  static Color _stripTimeColor(Color base) {
+    final hsl = HSLColor.fromColor(base);
+    return HSLColor.fromAHSL(
+      1,
+      hsl.hue,
+      (hsl.saturation * 0.45).clamp(0.0, 0.45),
+      0.46,
+    ).toColor();
+  }
 
   /// 특정 날짜에 표시할 이벤트 Bar 위젯 목록을 반환합니다.
   /// 슬롯 빈칸은 투명 SizedBox로 채워 다중 날 이벤트의 정렬을 유지합니다.
@@ -135,6 +156,8 @@ class _EventBarItem extends StatelessWidget {
 
   // 배경 없이 왼쪽 색상 바 + 어두운 글자 (시간 표시 일정)
   Widget _stripContent() {
+    final titleColor = EventBar._stripTitleColor(color);
+    final timeColor = EventBar._stripTimeColor(color);
     return Row(children: [
       Container(
         width: 3,
@@ -151,8 +174,8 @@ class _EventBarItem extends StatelessWidget {
           children: [
             if (timeLine != null)
               Text(timeLine!,
-                  style: const TextStyle(
-                    color: EventBar._stripTimeColor,
+                  style: TextStyle(
+                    color: timeColor,
                     fontSize: 8,
                     fontWeight: FontWeight.w700,
                     height: 1.0,
@@ -160,8 +183,8 @@ class _EventBarItem extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.clip),
             Text(title,
-                style: const TextStyle(
-                  color: EventBar._stripTitleColor,
+                style: TextStyle(
+                  color: titleColor,
                   fontSize: 9.5,
                   fontWeight: FontWeight.w600,
                   height: 1.1,

@@ -1,7 +1,8 @@
-// v4.4.6
+// v4.4.7
 // claude_settings_sheet.dart
 // lib/ui/widgets/settings_sheet.dart
 // [v4.4.6] 긴 일정 제목 줄바꿈 토글 추가
+// [v4.4.7] artifact-design 토큰 적용: 타일/보조텍스트 뉴트럴을 액센트 편향으로
 // ignore_for_file: curly_braces_in_flow_control_structures
 // calendar_screen.dart에서 분리된 앱 설정 바텀시트
 // - 클래스명: _AppSettingsSheet → AppSettingsSheet (public)
@@ -11,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../services/services.dart';
 
 class AppSettingsSheet extends StatefulWidget {
@@ -48,9 +50,8 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
   }
 
   Color get _text => widget.isDark ? Colors.white : const Color(0xFF1A1A2E);
-  Color get _sub => widget.isDark ? Colors.white54 : Colors.black54;
-  Color get _tile =>
-      widget.isDark ? const Color(0xFF3D3760) : const Color(0xFFF5F5F5);
+  Color get _sub => AppNeutral.muted(widget.accent, widget.isDark);
+  Color get _tile => AppNeutral.fill(widget.accent, widget.isDark);
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +73,7 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.grey[400],
+                      color: AppNeutral.faint(widget.accent, widget.isDark),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
