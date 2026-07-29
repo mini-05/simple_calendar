@@ -6,6 +6,7 @@
 //   - 국경일/어린이날/부처님오신날/크리스마스: 토요일·일요일 겹침 모두 대체공휴일 발생 (기존 일요일만 처리 버그)
 //   - 신정·현충일: 대체공휴일 대상에서 제외 (법 제3조①1호 목록에 미포함)
 //   - 단일 공휴일이 평일에 다른 공휴일과 겹치는 경우도 대체공휴일 발생 (법 제3조①3호, 예: 2025 어린이날·부처님오신날)
+// ignore_for_file: curly_braces_in_flow_control_structures
 import 'package:lunar/lunar.dart';
 import '../models/models.dart';
 import 'date_formatter.dart';
