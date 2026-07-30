@@ -1,7 +1,12 @@
-// v4.4.1
-// gemini_holidays.dart
+// v4.4.4
+// claude_holidays.dart
 // lib/services/holidays.dart
 // [v4.4.1] 대체공휴일 명칭 통일 → '대체공휴일'
+// [v4.4.4] 대체공휴일 로직 법령 준거 수정 (「관공서의 공휴일에 관한 규정」 제3조)
+//   - 국경일/어린이날/부처님오신날/크리스마스: 토요일·일요일 겹침 모두 대체공휴일 발생 (기존 일요일만 처리 버그)
+//   - 신정·현충일: 대체공휴일 대상에서 제외 (법 제3조①1호 목록에 미포함)
+//   - 단일 공휴일이 평일에 다른 공휴일과 겹치는 경우도 대체공휴일 발생 (법 제3조①3호, 예: 2025 어린이날·부처님오신날)
+// ignore_for_file: curly_braces_in_flow_control_structures
 import 'package:lunar/lunar.dart';
 import '../models/models.dart';
 import 'date_formatter.dart';
@@ -107,11 +112,10 @@ class HolidayUtil {
     final result = <CalendarEvent>[];
     final occupiedDates = current.map((h) => h.date).toSet();
 
+    // 법 제3조①1호·3호 대상 단일 공휴일 (신정·현충일은 대상 아님)
     const singleHolidayNames = {
-      '신정',
       '삼일절',
       '어린이날',
-      '현충일',
       '광복절',
       '개천절',
       '한글날',
@@ -143,12 +147,26 @@ class HolidayUtil {
       }
     }
 
-    // 1. 단일 공휴일 대체 로직
+    // 날짜별 공휴일 개수 (평일 겹침 판정용)
+    final dateCount = <String, int>{};
+    for (final h in current) {
+      dateCount[h.date] = (dateCount[h.date] ?? 0) + 1;
+    }
+
+    // 1. 단일 공휴일 대체 로직 (법 제3조①1호: 토·일 겹침 / 3호: 평일 다른 공휴일과 겹침)
+    final processedDates = <String>{};
     for (final h in current) {
       if (!singleHolidayNames.contains(h.title)) continue;
       final dt = h.startDt;
       if (dt.year != year) continue;
-      if (dt.weekday == DateTime.sunday) {
+      if (processedDates.contains(h.date)) continue; // 같은 날 중복 처리 방지
+      processedDates.add(h.date);
+
+      final isWeekend = dt.weekday == DateTime.saturday ||
+          dt.weekday == DateTime.sunday;
+      final overlapsOtherHoliday = (dateCount[h.date] ?? 0) > 1;
+
+      if (isWeekend || overlapsOtherHoliday) {
         addAlt(dt.add(const Duration(days: 1)), '대체공휴일');
       }
     }

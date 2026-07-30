@@ -173,6 +173,41 @@
     * 안드로이드 `desugar_jdk_libs` 버전을 `2.1.5`로 고정 업데이트하여 알림 패키지 충돌 해결.
     * GitHub Secrets 기반의 Keystore가 없을 경우 자동으로 디버그(Debug) 서명으로 Fallback하여 성공적으로 빌드되도록 안전장치 구축 완료.
 
+### [대체공휴일 법령 준거 및 죽은 코드 정리]
+* **v4.4.4:**
+  * **[Claude] 대체공휴일 로직 법령 버그 수정 (`holidays.dart`):** 「관공서의 공휴일에 관한 규정」 제3조를 직접 대조하여 3가지 불일치 수정.
+    1. **토요일 겹침 미처리 버그:** 국경일(삼일절·광복절·개천절·한글날)·어린이날·부처님오신날·크리스마스가 **토요일**에 겹칠 때 대체공휴일이 생성되지 않던 버그 수정(기존엔 일요일만 처리). 예) 2029 어린이날(토)→5/7, 2031·2036 삼일절(토).
+    2. **신정·현충일 오포함:** 법 제3조①1호 대상이 아닌 신정(1/1)·현충일(6/6)이 일요일에 겹치면 잘못 대체공휴일이 생성되던 문제 → 대상 목록에서 제외.
+    3. **평일 공휴일 중복 겹침(제3조①3호) 추가:** 단일 공휴일이 평일에 다른 공휴일과 겹치는 경우도 대체공휴일 생성. 예) 2025 어린이날·부처님오신날(동일 5/5 월)→5/6. 같은 날 중복 산출 방지 로직 포함.
+  * **[Claude] 죽은 코드 정리:** `services.dart`의 조건부 export(`ics_service_stub`/`ics_service_io`)로 대체되어 어디에서도 참조되지 않는 미사용 파일 `lib/services/ics_service.dart` 삭제.
+
+### [달력 셀 이벤트 바 UX 개선]
+* **v4.4.5:**
+  * **[Claude] 시간 일정 2줄 표시 (`event_bar.dart`):** 하루 종일이 아니라 시작/종료 시간이 설정된 일정은 달력 셀 첫 날 바에 '시간(윗줄)+제목(아랫줄)' 2줄 형태로 표시. 제목이 시간과 한 줄에서 잘려 보이던 문제 해소. 슬롯 정렬/다중일 연결 유지를 위해 모든 바를 균일 높이(22px)로 통일.
+  * **[Claude] 다중일 일정 바 연결 (`event_bar.dart`, `calendar_tile.dart`, `calendar_screen.dart`):** 며칠간 이어지는 일정의 색상 바가 시작일~종료일까지 끊김 없이 이어지도록 수정.
+    - EventBar: 시작/종료 날에만 좌우 여백·둥근 모서리를 부여하고 중간 날은 셀 가장자리까지 채움.
+    - CalendarTile: 셀 좌우 패딩(1px) 제거하여 이웃 셀 바가 맞닿도록 함.
+    - 화살표 모드: `TableCalendar`의 `CalendarStyle(cellMargin/cellPadding = zero)` 지정으로 셀 간 간격 제거.
+
+### [이벤트 바 표시 옵션 및 중복 코드 정리]
+* **v4.4.6:**
+  * **[Claude] 코드 중복 정리:** `home_widget_service.dart`·`splash_screen.dart`·`calendar_screen.dart`에 각각 중복 구현되어 있던 ISO 주차 계산(`_isoWeek`)·영문 요일/월 라벨(`MON~SUN`, `JAN~DEC`)을 `DateFormatter`의 공용 헬퍼(`isoWeek`, `weekdayEn`, `monthEn`, `weekLabelKo`)로 통합.
+  * **[Claude] 시간 일정 바 스타일 변경 (`event_bar.dart`):** 시작/종료 시간이 표시되는 일정은 배경색 채움 없이 **왼쪽 색상 바 + 어두운 글자**로 표시(밝은 셀 배경 대응). 하루 종일/다중일 밴드는 기존 색상 채움 유지.
+  * **[Claude] 긴 제목 줄바꿈 설정 추가 (`models.dart`, `settings_sheet.dart`, `calendar_tile.dart`, `event_bar.dart`):** `AppSettings.wrapEventText`(기본 false) 신설. 켜면 제목이 길 때 2줄, 시간 표기 일정은 3줄(시간 1줄+제목 2줄)까지 표시. 슬롯 정렬 및 다중일 바 연결 유지를 위해 바 높이는 설정값에 따라 균일(22px↔34px)하게 적용.
+
+### [artifact-design 스킬 적용: 디자인 토큰 도입]
+* **v4.4.7:**
+  * **[Claude] Anthropic `artifact-design` 스킬 원칙 적용:** 기존 `CalendarTheme` 디자인 시스템을 **덮어쓰지 않고 빈틈만 채우는(Fill gaps, don't override)** 방식으로 디자인 토큰 레이어 신설.
+  * **디자인 토큰(`lib/theme/design_tokens.dart` 신규):**
+    - `AppRadius`/`AppSpace`/`AppType`: 제각각이던 반경·간격·폰트 크기를 하나의 스케일로 정돈.
+    - `AppNeutral`(+`CalendarThemeTokens` 확장): **'선택된 뉴트럴'** — 순수 회색(`Colors.grey`, `black54`, `grey[100]`) 대신 각 테마 액센트 색조를 아주 옅게(채도 0.04~0.06) 머금은 회색을 계산해 제공. `(accent, isDark)`만으로 산출되어 `CalendarTheme`이 없는 위젯에서도 재사용.
+  * **적용 화면:**
+    - `event_bar.dart`: 시간 일정 스트립 글자색을 일정 색에서 파생한 선택된 뉴트럴로.
+    - `event_editor.dart`: 입력 필드/타일 채움, 구분선, 힌트/취소 텍스트를 토큰 뉴트럴로.
+    - `settings_sheet.dart`: 타일 배경·보조 텍스트·드래그 핸들을 토큰 뉴트럴로.
+    - `calendar_tile.dart`: 외부(다른 달) 날짜 텍스트를 토큰 뉴트럴로.
+  * ⚠️ 이 세션 환경엔 Flutter SDK가 없어 시각 결과는 실기기 확인 필요. 변경은 layout 구조를 바꾸지 않는 1:1 색상 치환 위주로 안전하게 적용.
+
 ---
 
 ## 🎯 4. 향후 마일스톤 (Upcoming Milestones)

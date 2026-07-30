@@ -1,8 +1,9 @@
-// v4.4.2
+// v4.4.6
 // gemini_splash_screen.dart
 // lib/ui/splash_screen.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
 // [v4.4.0] 앱 스플래시 화면 4종 애니메이션 완벽 구현 (Claude 리뷰 반영 픽스)
+// [v4.4.6] 중복 헬퍼(주차/요일/월 라벨)를 DateFormatter로 이관
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -11,36 +12,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
+import '../services/date_formatter.dart';
 // 💡 미사용 import '../theme/app_theme.dart'; 제거 완료
 import 'calendar_screen.dart';
 
-// ── ISO 8601 주차 계산 ────────────────────────────────────────────
-int _isoWeek(DateTime d) {
-  final startOfYear = DateTime(d.year, 1, 1);
-  final dayOfYear = d.difference(startOfYear).inDays + 1;
-  final weekNum = ((dayOfYear - d.weekday + 10) / 7).floor();
-  return weekNum < 1 ? _isoWeek(DateTime(d.year - 1, 12, 31)) : weekNum;
-}
-
-// ── 날짜 포맷 헬퍼 ───────────────────────────────────────────────
-const _weekdayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const _monthLabels = [
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC'
-];
-String _weekday(DateTime d) => _weekdayLabels[d.weekday - 1];
-String _month(DateTime d) => _monthLabels[d.month - 1];
-String _weekStr(DateTime d) => '${_isoWeek(d)}주차';
+// ── 날짜 포맷 헬퍼 (DateFormatter 공용 헬퍼로 위임) ──────────────
+String _weekday(DateTime d) => DateFormatter.weekdayEn(d);
+String _month(DateTime d) => DateFormatter.monthEn(d);
+String _weekStr(DateTime d) => DateFormatter.weekLabelKo(d);
 
 // ════════════════════════════════════════════════════════════════
 // SplashScreen — 진입점

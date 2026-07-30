@@ -1,10 +1,15 @@
-// v4.3.6
+// v4.4.7
 // claude_calendar_tile.dart
 // lib/ui/widgets/calendar_tile.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
+// [v4.4.5] 다중일 일정 바가 이웃 셀과 끊김 없이 이어지도록 셀 좌우 패딩 제거
+//   (바 좌우 여백은 EventBar가 시작/종료 날에만 부여 → 중간 날은 셀 가장자리까지 채움)
+// [v4.4.6] 긴 제목 줄바꿈 설정(wrapEventText)을 EventBar로 전달
+// [v4.4.7] artifact-design 토큰: 외부 날짜 텍스트를 선택된 뉴트럴로
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../services/date_formatter.dart';
 import 'event_bar.dart';
 
@@ -18,6 +23,7 @@ class CalendarTile extends StatelessWidget {
   final bool isOutside;
   final bool isHoliday; // 💡 공휴일 표시 OFF라도 백그라운드 데이터로 전달됨
   final bool showLunar;
+  final bool wrapEventText; // 💡 [v4.4.6] 긴 제목 줄바꿈 표시
   final double? forcedHeight;
 
   const CalendarTile({
@@ -31,6 +37,7 @@ class CalendarTile extends StatelessWidget {
     this.isOutside = false,
     this.isHoliday = false, // 💡 추가됨
     this.showLunar = false,
+    this.wrapEventText = false, // 💡 추가됨
     this.forcedHeight,
   });
 
@@ -41,7 +48,7 @@ class CalendarTile extends StatelessWidget {
 
   Color _textColor() {
     if (isSelected) return Colors.white;
-    if (isOutside) return th.isDark ? Colors.white24 : Colors.grey[400]!;
+    if (isOutside) return th.isDark ? Colors.white24 : th.tFaint;
     if (day.weekday == DateTime.sunday || isHoliday)
       return Colors.redAccent; // 💡 이벤트 여부와 무관하게 isHoliday 판별
     if (day.weekday == DateTime.saturday) return Colors.blueAccent;
@@ -132,7 +139,8 @@ class CalendarTile extends StatelessWidget {
         constraints: forcedHeight != null
             ? BoxConstraints(minHeight: forcedHeight!)
             : const BoxConstraints(minHeight: 52),
-        padding: const EdgeInsets.only(top: 3, left: 1, right: 1, bottom: 2),
+        // 좌우 패딩 0: 다중일 바가 셀 경계에서 이웃 셀 바와 이어지도록 함
+        padding: const EdgeInsets.only(top: 3, bottom: 2),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -148,6 +156,7 @@ class CalendarTile extends StatelessWidget {
                 events: _events,
                 slotMap: slotMap,
                 primaryAccent: th.primaryAccent,
+                wrapText: wrapEventText,
               ),
           ],
         ),

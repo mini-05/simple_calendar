@@ -1,9 +1,10 @@
-// v4.3.9
-// claude_home_widget_service.dart
+// v4.4.6
+// home_widget_service.dart
 // lib/services/home_widget_service.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
 // [v4.3.9] 동적 인포그래픽 테마 4종 지원 및 Web 크래시 방지 패치
 // - dart:io Platform 대신 foundation의 kIsWeb 및 defaultTargetPlatform 사용
+// [v4.4.6] 중복 헬퍼(주차/요일/월 라벨)를 DateFormatter로 이관
 
 import 'package:flutter/foundation.dart'; // 💡 kIsWeb, defaultTargetPlatform 사용
 import 'package:home_widget/home_widget.dart';
@@ -13,36 +14,6 @@ import '../app_config.dart';
 import 'date_formatter.dart';
 
 class HomeWidgetService {
-  // ── ISO 8601 주차 계산 (월요일 시작) ──────────────────────────
-  static int _isoWeek(DateTime d) {
-    final startOfYear = DateTime(d.year, 1, 1);
-    final dayOfYear = d.difference(startOfYear).inDays + 1;
-    final weekNum = ((dayOfYear - d.weekday + 10) / 7).floor();
-    if (weekNum < 1) {
-      return _isoWeek(DateTime(d.year - 1, 12, 31));
-    }
-    return weekNum;
-  }
-
-  static const _weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-  static String _weekdayLabel(DateTime d) => _weekdays[d.weekday - 1];
-
-  static const _months = [
-    'JAN',
-    'FEB',
-    'MAR',
-    'APR',
-    'MAY',
-    'JUN',
-    'JUL',
-    'AUG',
-    'SEP',
-    'OCT',
-    'NOV',
-    'DEC'
-  ];
-  static String _monthLabel(DateTime d) => _months[d.month - 1];
-
   static Future<void> updateTodayEvents(
     List<CalendarEvent> allEvents, {
     WidgetTheme widgetTheme = WidgetTheme.flip,
@@ -78,9 +49,9 @@ class HomeWidgetService {
             }).join('\n');
 
       final day = today.day.toString();
-      final weekday = _weekdayLabel(today);
-      final month = _monthLabel(today);
-      final week = '${_isoWeek(today)}주차'; // 💡 N주차 포맷 통일
+      final weekday = DateFormatter.weekdayEn(today);
+      final month = DateFormatter.monthEn(today);
+      final week = DateFormatter.weekLabelKo(today); // 💡 N주차 포맷 통일
 
       final cfg = AppThemeExt.widgetConfig(widgetTheme);
       final accentHex = _colorToHex(cfg.accent);

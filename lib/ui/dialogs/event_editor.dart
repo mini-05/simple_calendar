@@ -1,10 +1,12 @@
-// v4.4.0
+// v4.4.7
 // gemini_event_editor.dart
 // lib/ui/dialogs/event_editor.dart
+// [v4.4.7] artifact-design 토큰 적용: raw grey/black54/white38 → 선택된 뉴트럴
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../services/services.dart'; // 💡 date_formatter 개별 임포트 삭제됨!
 
 Future<void> showEventEditor({
@@ -117,9 +119,7 @@ Future<void> showEventEditor({
           onPressed: () {
             if (dlgCtx.mounted) Navigator.pop(dlgCtx);
           },
-          child: Text('취소',
-              style:
-                  TextStyle(color: th.isDark ? Colors.white54 : Colors.grey)),
+          child: Text('취소', style: TextStyle(color: th.tMuted)),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
@@ -245,11 +245,11 @@ class _TitleField extends StatelessWidget {
         style: TextStyle(color: th.isDark ? Colors.white : Colors.black),
         decoration: InputDecoration(
           hintText: '일정을 입력하세요',
-          hintStyle: TextStyle(color: th.isDark ? Colors.white38 : Colors.grey),
+          hintStyle: TextStyle(color: th.tFaint),
           filled: true,
-          fillColor: th.isDark ? const Color(0xFF3D3760) : Colors.grey[100],
+          fillColor: th.tFill,
           counterStyle: TextStyle(
-              color: th.isDark ? Colors.white38 : Colors.grey, fontSize: 11),
+              color: th.tFaint, fontSize: 11),
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none),
@@ -278,7 +278,7 @@ class _DateTimeSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-            color: th.isDark ? const Color(0xFF3D3760) : Colors.grey[100],
+            color: th.tFill,
             borderRadius: BorderRadius.circular(12)),
         child: ValueListenableBuilder<bool>(
           valueListenable: isAllDayN,
@@ -310,7 +310,7 @@ class _DateTimeSection extends StatelessWidget {
       );
 
   Divider _div() =>
-      Divider(height: 1, color: th.isDark ? Colors.white12 : Colors.grey[300]);
+      Divider(height: 1, color: th.tDivider);
 
   Widget _pickerRow(String label, ValueNotifier<DateTime> n, bool isDate) =>
       ValueListenableBuilder<DateTime>(
@@ -417,7 +417,7 @@ class _RecurrenceSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-            color: th.isDark ? const Color(0xFF3D3760) : Colors.grey[100],
+            color: th.tFill,
             borderRadius: BorderRadius.circular(12)),
         child: Column(children: [
           ValueListenableBuilder<bool>(
@@ -428,7 +428,7 @@ class _RecurrenceSection extends StatelessWidget {
                 Icon(Icons.repeat,
                     color: hasRec
                         ? th.primaryAccent
-                        : (th.isDark ? Colors.white38 : Colors.grey),
+                        : (th.tFaint),
                     size: 20),
                 const SizedBox(width: 10),
                 Text('반복 일정',
@@ -451,7 +451,7 @@ class _RecurrenceSection extends StatelessWidget {
               return Column(children: [
                 Divider(
                     height: 1,
-                    color: th.isDark ? Colors.white12 : Colors.grey[300]),
+                    color: th.tDivider),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                   child: Column(
@@ -565,7 +565,7 @@ class _AlarmSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-            color: th.isDark ? const Color(0xFF3D3760) : Colors.grey[100],
+            color: th.tFill,
             borderRadius: BorderRadius.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(
