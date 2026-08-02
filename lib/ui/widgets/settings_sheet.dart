@@ -1,8 +1,9 @@
-// v4.4.7
+// v4.4.8
 // claude_settings_sheet.dart
 // lib/ui/widgets/settings_sheet.dart
 // [v4.4.6] 긴 일정 제목 줄바꿈 토글 추가
 // [v4.4.7] artifact-design 토큰 적용: 타일/보조텍스트 뉴트럴을 액센트 편향으로
+// [v4.4.8] 정리: 양쪽 분기가 같던 삼항식 제거, 아무도 넘기지 않던 activeColor 파라미터 제거
 // ignore_for_file: curly_braces_in_flow_control_structures
 // calendar_screen.dart에서 분리된 앱 설정 바텀시트
 // - 클래스명: _AppSettingsSheet → AppSettingsSheet (public)
@@ -62,7 +63,7 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
       expand: false,
       builder:
           (_, ctrl) => Container(
-            color: widget.isDark ? const Color(0xFF2A2640) : Colors.white,
+            color: AppSurface.sheet(widget.isDark),
             child: ListView(
               controller: ctrl,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -429,11 +430,8 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                             WidgetTheme.classic => 'C',
                             WidgetTheme.astronomical => 'D', // 💡 에러 원인 완벽 수정!
                           },
-                          style: TextStyle(
-                            color:
-                                cfg.textPrimary == Colors.white
-                                    ? Colors.white
-                                    : Colors.white,
+                          style: const TextStyle(
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -583,7 +581,6 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
     required String subtitle,
     required bool value,
     ValueChanged<bool>? onChanged,
-    Color? activeColor,
     bool disabled = false,
   }) => Opacity(
     opacity: disabled ? 0.4 : 1.0,
@@ -594,10 +591,7 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
         borderRadius: BorderRadius.circular(14),
       ),
       child: SwitchListTile(
-        secondary: Icon(
-          icon,
-          color: value ? (activeColor ?? widget.accent) : _sub,
-        ),
+        secondary: Icon(icon, color: value ? widget.accent : _sub),
         title: Text(
           label,
           style: TextStyle(
@@ -608,7 +602,7 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
         ),
         subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: _sub)),
         value: value,
-        activeTrackColor: activeColor ?? widget.accent,
+        activeTrackColor: widget.accent,
         activeThumbColor: Colors.white,
         onChanged: onChanged,
       ),

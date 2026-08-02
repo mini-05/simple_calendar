@@ -1,4 +1,4 @@
-// v4.4.2
+// v4.4.8
 // ics_service_io.dart
 // lib/services/ics_service_io.dart
 // [조건부 임포트] 모바일(Android/iOS) 환경에서만 실행되는 dart:io 기반 진짜 코드
@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/models.dart';
+import 'date_formatter.dart';
 import 'storage_service.dart';
 
 class IcsService {
@@ -104,8 +105,8 @@ class IcsService {
                 CalendarEvent(
                   id: EventStorage.generateId(),
                   title: summary,
-                  date: _fmtDateStr(sD),
-                  endDate: eD != null ? _fmtDateStr(eD) : null,
+                  date: DateFormatter.dateKey(sD),
+                  endDate: eD != null ? DateFormatter.dateKey(eD) : null,
                   isAllDay: sT == null,
                   startTime: sT,
                   endTime: eT,
@@ -137,9 +138,6 @@ class IcsService {
       return false;
     }
   }
-
-  static String _fmtDateStr(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   static DateTime? _parseDate(String v) {
     v = v.replaceAll('\r', '').replaceAll('Z', '');

@@ -505,8 +505,18 @@ class DefaultCardTheme extends CalendarTheme {
 // AppThemeExt — AppTheme enum → CalendarTheme 인스턴스 변환
 // ══════════════════════════════════════════════════════════════════
 
+// [v4.4.8] 테마 인스턴스 캐시.
+// 모든 CalendarTheme 구현체는 불변(모든 필드 final, getter는 상수/final 반환,
+// BuildContext나 가변 상태를 보유하지 않음)이므로 인스턴스를 공유해도
+// 매번 새로 만드는 것과 구별되지 않는다. themeData는 프레임마다 여러 번,
+// 테마 선택 다이얼로그에서는 6종 전부가 읽히므로 불필요한 할당이 컸다.
+final Map<AppTheme, CalendarTheme> _themeCache = {};
+
 extension AppThemeExt on AppTheme {
-  CalendarTheme get themeData => switch (this) {
+  CalendarTheme get themeData =>
+      _themeCache[this] ??= _buildThemeData();
+
+  CalendarTheme _buildThemeData() => switch (this) {
         AppTheme.samsung => BarCardTheme(
             AppTheme.samsung,
             '삼성 캘린더',

@@ -59,23 +59,25 @@ class HomeWidgetService {
       final textPrimaryHex = _colorToHex(cfg.textPrimary);
       final textSecondaryHex = _colorToHex(cfg.textSecondary);
 
-      await HomeWidget.saveWidgetData<String>(
-          'today_date', '${today.month}월 ${today.day}일');
-      await HomeWidget.saveWidgetData<String>('today_events', summary);
-      await HomeWidget.saveWidgetData<int>('event_count', todayEvents.length);
+      // 12개의 저장은 서로 다른 키에 쓰므로 순서가 관찰되지 않는다.
+      // 예전에는 플랫폼 채널 왕복을 12번 줄줄이 await 했다.
+      await Future.wait([
+        HomeWidget.saveWidgetData<String>(
+            'today_date', '${today.month}월 ${today.day}일'),
+        HomeWidget.saveWidgetData<String>('today_events', summary),
+        HomeWidget.saveWidgetData<int>('event_count', todayEvents.length),
+        HomeWidget.saveWidgetData<String>('day', day),
+        HomeWidget.saveWidgetData<String>('weekday', weekday),
+        HomeWidget.saveWidgetData<String>('month', month),
+        HomeWidget.saveWidgetData<String>('week', week),
+        HomeWidget.saveWidgetData<String>('widget_theme', cfg.motionTag),
+        HomeWidget.saveWidgetData<String>('accent_color', accentHex),
+        HomeWidget.saveWidgetData<String>('bg_color', bgHex),
+        HomeWidget.saveWidgetData<String>('text_primary', textPrimaryHex),
+        HomeWidget.saveWidgetData<String>('text_secondary', textSecondaryHex),
+      ]);
 
-      await HomeWidget.saveWidgetData<String>('day', day);
-      await HomeWidget.saveWidgetData<String>('weekday', weekday);
-      await HomeWidget.saveWidgetData<String>('month', month);
-      await HomeWidget.saveWidgetData<String>('week', week);
-
-      await HomeWidget.saveWidgetData<String>('widget_theme', cfg.motionTag);
-      await HomeWidget.saveWidgetData<String>('accent_color', accentHex);
-      await HomeWidget.saveWidgetData<String>('bg_color', bgHex);
-      await HomeWidget.saveWidgetData<String>('text_primary', textPrimaryHex);
-      await HomeWidget.saveWidgetData<String>(
-          'text_secondary', textSecondaryHex);
-
+      // 저장이 모두 끝난 뒤에 갱신 (기존 순서 유지)
       await HomeWidget.updateWidget(
           name: AppConfig.androidWidgetProvider,
           iOSName: AppConfig.iosWidgetName);

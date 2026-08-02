@@ -1,16 +1,19 @@
-// v4.3.6
+// v4.4.8
 // claude_slot_calculator.dart
 // lib/services/slot_calculator.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
+// [v4.4.8] 아무도 읽지 않던 windowEvents 필드 제거.
+//   결과 객체가 24개월 창의 전체 이벤트 목록(공휴일 포함)을 상태 수명 내내
+//   붙잡고 있을 이유가 없다. 계산 중 쓰이는 지역 변수는 그대로 유지된다.
+//   (operator []는 단위 테스트가 사용하므로 유지)
 import '../models/models.dart';
 import 'date_formatter.dart';
 
 class SlotCalculationResult {
   final Map<String, List<CalendarEvent>> eventsByDate;
   final Map<int, int> slotMap;
-  final List<CalendarEvent> windowEvents;
 
-  SlotCalculationResult(this.eventsByDate, this.slotMap, this.windowEvents);
+  SlotCalculationResult(this.eventsByDate, this.slotMap);
 
   int? operator [](int eventId) => slotMap[eventId];
 }
@@ -95,7 +98,7 @@ class SlotCalculator {
           (a, b) => (newSlotMap[a.id] ?? 0).compareTo(newSlotMap[b.id] ?? 0));
     }
 
-    return SlotCalculationResult(map, newSlotMap, windowEvents);
+    return SlotCalculationResult(map, newSlotMap);
   }
 
   static void _forEachDayInWindow(CalendarEvent e, DateTime minD, DateTime maxD,

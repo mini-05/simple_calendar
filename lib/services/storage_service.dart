@@ -73,25 +73,31 @@ class AppSettingsStorage {
     49
   ]);
 
-  static Future<AppSettings> load() async {
+  static Future<AppSettings> load() async => (await loadWithFirstRun()).settings;
+
+  /// [v4.4.8] 설정과 '최초 실행 여부'를 한 번의 읽기로 함께 반환한다.
+  /// 예전에는 load()와 isFirstRun()이 같은 키를 각각 읽어, 앱 시작 시
+  /// 보안 저장소 복호화를 포함한 채널 왕복이 두 번 발생했다.
+  static Future<({AppSettings settings, bool isFirstRun})>
+      loadWithFirstRun() async {
     final raw = await StorageHelper.readData(_key);
     if (raw != null) {
       try {
-        return AppSettings.fromJson(jsonDecode(raw));
+        return (
+          settings: AppSettings.fromJson(jsonDecode(raw)),
+          isFirstRun: false,
+        );
       } catch (e) {
         appLog('[Settings] 설정 파싱 실패, 기본값 사용: $e');
       }
+      // 저장된 값이 손상된 경우: 기본값을 쓰되 '최초 실행'은 아니다.
+      return (settings: const AppSettings(), isFirstRun: false);
     }
-    return const AppSettings();
+    return (settings: const AppSettings(), isFirstRun: true);
   }
 
   static Future<void> save(AppSettings s) async {
     await StorageHelper.writeData(_key, jsonEncode(s.toJson()));
-  }
-
-  static Future<bool> isFirstRun() async {
-    final raw = await StorageHelper.readData(_key);
-    return raw == null;
   }
 }
 

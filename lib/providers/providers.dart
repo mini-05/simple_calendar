@@ -1,19 +1,22 @@
-// v4.4.2
+// v4.4.8
 // providers.dart
 // lib/providers/providers.dart
 // [v4.4.2] Riverpod 3.x 마이그레이션 및 캡처 방지 로직 적용
+// [v4.4.8] 효율/정리:
+//   - 로컬 _dateKey 제거 → DateFormatter.dateKey로 일원화(포맷 정의가 갈리지 않도록).
+//   - 아무도 읽지 않던 cachedArrowRowHeight/_calcRowHeight 제거.
+//     (화살표 월 이동 시 state를 두 번 대입해 화면이 두 번 리빌드되던 원인)
+//   - 공휴일 생성 아이솔레이트를 (minDate,maxDate) 기준으로 캐시 — 일정 추가/수정 등
+//     창(window)이 그대로인 재빌드에서 동일 결과를 다시 계산하지 않는다.
+//   - 반복 일정이 하나도 없으면 확장 아이솔레이트를 띄우지 않는다.
 
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show kIsWeb, compute, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_protector/screen_protector.dart'; // 💡 [신규 추가됨] 화면 캡처 방지 패키지
 import '../models/models.dart';
 import '../services/services.dart';
-import '../theme/app_theme.dart';
-
-String _dateKey(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+import '../theme/app_theme.dart'; // themeData 확장 (updateSettings의 showTextInside 비교)
 
 List<CalendarEvent> _generateHolidaysIsolate(Map<String, dynamic> args) {
   final minDate = args['minDate'] as DateTime;
@@ -38,8 +41,8 @@ List<CalendarEvent> _expandRecurringIsolate(Map<String, dynamic> args) {
       final instEnd = d.add(dur);
       result.add(
         e.copyWith(
-          date: _dateKey(d),
-          endDate: _dateKey(instEnd),
+          date: DateFormatter.dateKey(d),
+          endDate: DateFormatter.dateKey(instEnd),
           parentId: e.id,
           isRecurrenceInstance: true,
         ),
@@ -58,7 +61,6 @@ class CalendarState {
   final DateTime? selectedDay;
   final AppSettings settings;
   final bool isLoading;
-  final double cachedArrowRowHeight;
   final Set<String> holidayDates;
 
   const CalendarState({
@@ -70,7 +72,6 @@ class CalendarState {
     this.selectedDay,
     this.settings = const AppSettings(),
     this.isLoading = true,
-    this.cachedArrowRowHeight = 56.0,
     this.holidayDates = const {},
   });
 
@@ -83,7 +84,6 @@ class CalendarState {
     DateTime? selectedDay,
     AppSettings? settings,
     bool? isLoading,
-    double? cachedArrowRowHeight,
     Set<String>? holidayDates,
   }) => CalendarState(
     masterEvents: masterEvents ?? this.masterEvents,
@@ -94,13 +94,18 @@ class CalendarState {
     selectedDay: selectedDay ?? this.selectedDay,
     settings: settings ?? this.settings,
     isLoading: isLoading ?? this.isLoading,
-    cachedArrowRowHeight: cachedArrowRowHeight ?? this.cachedArrowRowHeight,
     holidayDates: holidayDates ?? this.holidayDates,
   );
 }
 
 class CalendarNotifier extends Notifier<CalendarState> {
   DateTime _windowCenter = DateTime.now();
+
+  // 공휴일 캐시 — 창(minDate,maxDate)이 바뀔 때만 갱신된다.
+  List<CalendarEvent> _cachedHolidays = const [];
+  Set<String> _cachedHolidayDates = const {};
+  DateTime? _holidayCacheMin;
+  DateTime? _holidayCacheMax;
 
   @override
   CalendarState build() {
@@ -109,16 +114,16 @@ class CalendarNotifier extends Notifier<CalendarState> {
   }
 
   Future<void> _init() async {
-    final results = await Future.wait([
-      AppSettingsStorage.load(),
-      EventStorage.loadAll(),
-    ]);
+    // 설정과 '최초 실행 여부'는 같은 키에서 나오므로 한 번만 읽는다.
+    // 두 로드는 서로 독립적이라 먼저 나란히 시작해 두고 결과만 기다린다.
+    final settingsFuture = AppSettingsStorage.loadWithFirstRun();
+    final eventsFuture = EventStorage.loadAll();
+    final loaded = await settingsFuture;
+    final events = await eventsFuture;
 
-    AppSettings settings = results[0] as AppSettings;
-    final events = results[1] as List<CalendarEvent>;
+    AppSettings settings = loaded.settings;
 
-    final isFirstRun = await AppSettingsStorage.isFirstRun();
-    if (isFirstRun) {
+    if (loaded.isFirstRun) {
       final defaultTheme =
           (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
               ? AppTheme.apple
@@ -149,29 +154,49 @@ class CalendarNotifier extends Notifier<CalendarState> {
     final minDate = DateTime(_windowCenter.year, _windowCenter.month - 12, 1);
     final maxDate = DateTime(_windowCenter.year, _windowCenter.month + 13, 0);
 
-    final holidaysFuture = compute(_generateHolidaysIsolate, {
-      'minDate': minDate,
-      'maxDate': maxDate,
-    });
+    // 공휴일은 (minDate, maxDate)만의 순수 함수이므로 창이 그대로면 재계산하지 않는다.
+    // 일정 추가/수정/삭제·알람 토글·설정 변경 등 대부분의 재빌드는 창이 바뀌지 않아
+    // 매번 아이솔레이트를 띄우고 동일한 결과를 다시 만들던 비용이 사라진다.
+    final needHolidays =
+        _holidayCacheMin != minDate || _holidayCacheMax != maxDate;
 
-    final expandFuture = compute(_expandRecurringIsolate, {
-      'events': master,
-      'minDate': minDate,
-      'maxDate': maxDate,
-    });
+    final holidaysFuture = needHolidays
+        ? compute(_generateHolidaysIsolate, {
+            'minDate': minDate,
+            'maxDate': maxDate,
+          })
+        : Future.value(_cachedHolidays);
+
+    // 반복 일정이 하나도 없으면 확장 아이솔레이트는 단순 복사에 불과하다.
+    // 아이솔레이트 기동 + 이벤트 목록 왕복 직렬화 비용만 남으므로 건너뛴다.
+    final hasRecurrence = master.any((e) => e.recurrenceRule != null);
+    final expandFuture = hasRecurrence
+        ? compute(_expandRecurringIsolate, {
+            'events': master,
+            'minDate': minDate,
+            'maxDate': maxDate,
+          })
+        : Future.value(master);
 
     final isolateResults = await Future.wait([holidaysFuture, expandFuture]);
     final allHolidays = isolateResults[0];
     final expanded = isolateResults[1];
 
-    final holidayDates = <String>{};
-    for (final h in allHolidays) {
-      DateTime cur = h.startDt;
-      while (!cur.isAfter(h.endDt)) {
-        holidayDates.add(_dateKey(cur));
-        cur = cur.add(const Duration(days: 1));
+    if (needHolidays) {
+      final keys = <String>{};
+      for (final h in allHolidays) {
+        DateTime cur = h.startDt;
+        while (!cur.isAfter(h.endDt)) {
+          keys.add(DateFormatter.dateKey(cur));
+          cur = cur.add(const Duration(days: 1));
+        }
       }
+      _cachedHolidays = allHolidays;
+      _cachedHolidayDates = keys;
+      _holidayCacheMin = minDate;
+      _holidayCacheMax = maxDate;
     }
+    final holidayDates = _cachedHolidayDates;
 
     final holidaysToDisplay =
         state.settings.showHolidays ? allHolidays : <CalendarEvent>[];
@@ -181,13 +206,11 @@ class CalendarNotifier extends Notifier<CalendarState> {
       _windowCenter,
       state.slotMap,
       firstLoad,
-      holidaysToDisplay.isEmpty ? null : holidaysToDisplay,
+      holidaysToDisplay,
     );
 
-    final selKey = _dateKey(state.selectedDay ?? state.focusedDay);
+    final selKey = DateFormatter.dateKey(state.selectedDay ?? state.focusedDay);
     final selEvents = result.eventsByDate[selKey] ?? <CalendarEvent>[];
-
-    final rowHeight = _calcRowHeight(state.focusedDay, result.eventsByDate);
 
     state = state.copyWith(
       masterEvents: master,
@@ -195,7 +218,6 @@ class CalendarNotifier extends Notifier<CalendarState> {
       slotMap: result.slotMap,
       selectedEvents: selEvents,
       isLoading: false,
-      cachedArrowRowHeight: rowHeight,
       holidayDates: holidayDates,
     );
 
@@ -203,23 +225,6 @@ class CalendarNotifier extends Notifier<CalendarState> {
       master,
       widgetTheme: state.settings.dynamicWidgetTheme,
     );
-  }
-
-  double _calcRowHeight(
-    DateTime focused,
-    Map<String, List<CalendarEvent>> byDate,
-  ) {
-    if (!state.settings.currentTheme.themeData.showTextInside) {
-      return 56.0;
-    }
-    int maxCnt = 0;
-    final fd = DateTime(focused.year, focused.month, 1);
-    final ld = DateTime(focused.year, focused.month + 1, 0);
-    for (var d = fd; !d.isAfter(ld); d = d.add(const Duration(days: 1))) {
-      final cnt = (byDate[_dateKey(d)] ?? []).length;
-      if (cnt > maxCnt) maxCnt = cnt;
-    }
-    return math.max(22.0 + maxCnt * 20.0 + 10.0, 56.0);
   }
 
   void _checkAndUpdateViewport(DateTime focused) {
@@ -234,7 +239,7 @@ class CalendarNotifier extends Notifier<CalendarState> {
 
   void selectDay(DateTime selected, DateTime focused) {
     final selEvents =
-        state.eventsByDate[_dateKey(selected)] ?? <CalendarEvent>[];
+        state.eventsByDate[DateFormatter.dateKey(selected)] ?? <CalendarEvent>[];
     state = state.copyWith(
       selectedDay: selected,
       focusedDay: focused,
@@ -245,18 +250,13 @@ class CalendarNotifier extends Notifier<CalendarState> {
   void onArrowPageChanged(DateTime focused) {
     state = state.copyWith(focusedDay: focused);
     _checkAndUpdateViewport(focused);
-    if (state.settings.currentTheme.themeData.showTextInside) {
-      state = state.copyWith(
-        cachedArrowRowHeight: _calcRowHeight(focused, state.eventsByDate),
-      );
-    }
   }
 
   void onSwipePageChanged(DateTime month) {
     final now = DateTime.now();
     final sel =
         (month.year == now.year && month.month == now.month) ? now : month;
-    final selEvents = state.eventsByDate[_dateKey(sel)] ?? <CalendarEvent>[];
+    final selEvents = state.eventsByDate[DateFormatter.dateKey(sel)] ?? <CalendarEvent>[];
     state = state.copyWith(
       focusedDay: month,
       selectedDay: sel,
@@ -270,7 +270,7 @@ class CalendarNotifier extends Notifier<CalendarState> {
     state = state.copyWith(
       focusedDay: target,
       selectedDay: target,
-      selectedEvents: state.eventsByDate[_dateKey(target)] ?? <CalendarEvent>[],
+      selectedEvents: state.eventsByDate[DateFormatter.dateKey(target)] ?? <CalendarEvent>[],
     );
     _rebuildIndex(state.masterEvents);
   }
@@ -320,8 +320,8 @@ class CalendarNotifier extends Notifier<CalendarState> {
     );
     final newEnd = newStart.add(dur);
     final moved = event.copyWith(
-      date: _dateKey(newStart),
-      endDate: _dateKey(newEnd),
+      date: DateFormatter.dateKey(newStart),
+      endDate: DateFormatter.dateKey(newEnd),
     );
     await updateEvent(moved);
   }

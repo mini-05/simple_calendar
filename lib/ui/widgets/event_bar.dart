@@ -1,4 +1,4 @@
-// v4.4.7
+// v4.4.8
 // claude_event_bar.dart
 // lib/ui/widgets/event_bar.dart
 // ignore_for_file: curly_braces_in_flow_control_structures
@@ -10,9 +10,11 @@
 //   슬롯 정렬/다중일 연결을 위해 바 높이는 설정에 따라 균일하게 유지됨.
 // [v4.4.7] artifact-design 토큰: 시간 일정 글자색을 순수 회색 대신
 //   '일정 색에서 파생한 선택된 뉴트럴'로 (색 정체성 유지 + 가독성).
+// [v4.4.8] 정리: 틴트 계산을 AppNeutral로 이관(정책 일원화 + 캐시),
+//   timeLine과 중복이던 stripStyle 필드 제거, 도달 불가였던 설날/추석 분기 삭제.
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
-import '../../services/date_formatter.dart';
+import '../../theme/design_tokens.dart';
 
 class EventBar {
   static const double _barMargin = 2.0;
@@ -21,39 +23,17 @@ class EventBar {
   static double barHeight(bool wrap) => wrap ? 34.0 : 22.0;
   static double slotHeight(bool wrap) => barHeight(wrap) + _barMargin;
 
-  // 시간 일정(배경 없는 스타일)의 글자색은 순수 회색 대신 '일정 색에서 파생한
-  // 선택된 뉴트럴'을 사용 — 각 일정의 색조를 옅게 머금은 어두운 톤으로, 밝은 셀
-  // 배경에서 가독성을 유지하면서 색 정체성을 함께 전달한다. (artifact-design 원칙)
-  static Color _stripTitleColor(Color base) {
-    final hsl = HSLColor.fromColor(base);
-    return HSLColor.fromAHSL(
-      1,
-      hsl.hue,
-      (hsl.saturation * 0.55).clamp(0.0, 0.5),
-      0.26,
-    ).toColor();
-  }
-
-  static Color _stripTimeColor(Color base) {
-    final hsl = HSLColor.fromColor(base);
-    return HSLColor.fromAHSL(
-      1,
-      hsl.hue,
-      (hsl.saturation * 0.45).clamp(0.0, 0.45),
-      0.46,
-    ).toColor();
-  }
-
   /// 특정 날짜에 표시할 이벤트 Bar 위젯 목록을 반환합니다.
   /// 슬롯 빈칸은 투명 SizedBox로 채워 다중 날 이벤트의 정렬을 유지합니다.
+  /// [dayKey]는 호출부(CalendarTile)가 이미 만들어 둔 날짜 키를 그대로 받는다 —
+  /// 셀마다 같은 문자열을 다시 만들지 않기 위함.
   static List<Widget> buildBars({
-    required DateTime day,
+    required String dayKey,
     required List<CalendarEvent> events,
     required Map<int, int> slotMap,
     required Color primaryAccent,
     bool wrapText = false,
   }) {
-    final dayKey = DateFormatter.dateKey(day);
     final double barH = barHeight(wrapText);
     final double slotH = slotHeight(wrapText);
     final int titleMaxLines = wrapText ? 2 : 1;
@@ -76,18 +56,13 @@ class EventBar {
       final isFirst = dayKey == e.date;
       final isLast = dayKey == (e.endDate ?? e.date);
 
-      // 설날·추석은 연속 블록에서 가운데 날에만 텍스트 표시
-      bool showText = !e.isMultiDay || isFirst;
-      if (e.isHoliday && (e.title == '설날' || e.title == '추석') && e.isMultiDay) {
-        showText = dayKey ==
-            DateFormatter.dateKey(e.startDt.add(const Duration(days: 1)));
-      }
+      // 다중일 일정은 첫 날에만 텍스트를 표시한다.
+      final bool showText = !e.isMultiDay || isFirst;
 
       // 시작/종료 시간이 설정된(하루 종일 아님) 일정은 첫 날에 시간 줄 표시
       final bool isTimed = !e.isAllDay && e.startTime != null;
       final bool showTime = showText && isTimed && isFirst;
       final String? timeLine = showTime ? e.startTime : null;
-      final String title = showText ? e.title : '';
 
       return _EventBarItem(
         color: color,
@@ -95,12 +70,11 @@ class EventBar {
         isLast: isLast,
         isMultiDay: e.isMultiDay,
         showText: showText,
+        // timeLine != null 이면 '시간 표시 일정' — 배경 없이 왼쪽 바만 그린다.
         timeLine: timeLine,
-        title: title,
+        title: e.title,
         barHeight: barH,
         titleMaxLines: titleMaxLines,
-        // 시간이 표시되는 일정: 배경색 없이 왼쪽 색상 바만 표시
-        stripStyle: showTime,
       );
     });
   }
@@ -113,7 +87,8 @@ class _EventBarItem extends StatelessWidget {
   final String title;
   final double barHeight;
   final int titleMaxLines;
-  final bool stripStyle;
+
+  bool get _stripStyle => timeLine != null;
 
   const _EventBarItem({
     required this.color,
@@ -125,7 +100,6 @@ class _EventBarItem extends StatelessWidget {
     required this.title,
     required this.barHeight,
     required this.titleMaxLines,
-    required this.stripStyle,
   });
 
   @override
@@ -139,7 +113,7 @@ class _EventBarItem extends StatelessWidget {
         right: isLast ? 2 : 0,
       ),
       // 시간 표시 스타일: 배경색 없음 / 그 외: 색상 채움 바
-      decoration: stripStyle
+      decoration: _stripStyle
           ? null
           : BoxDecoration(
               color: color.withValues(alpha: 0.85),
@@ -149,15 +123,16 @@ class _EventBarItem extends StatelessWidget {
               ),
             ),
       child: showText
-          ? (stripStyle ? _stripContent() : _filledContent())
+          ? (_stripStyle ? _stripContent() : _filledContent())
           : const SizedBox.shrink(),
     );
   }
 
   // 배경 없이 왼쪽 색상 바 + 어두운 글자 (시간 표시 일정)
   Widget _stripContent() {
-    final titleColor = EventBar._stripTitleColor(color);
-    final timeColor = EventBar._stripTimeColor(color);
+    final titleColor = AppNeutral.onSurfaceFrom(color);
+    final timeColor = AppNeutral.subduedFrom(color);
+    final time = timeLine!; // _stripStyle이 true일 때만 호출된다
     return Row(children: [
       Container(
         width: 3,
@@ -172,16 +147,15 @@ class _EventBarItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (timeLine != null)
-              Text(timeLine!,
-                  style: TextStyle(
-                    color: timeColor,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    height: 1.0,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.clip),
+            Text(time,
+                style: TextStyle(
+                  color: timeColor,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.clip),
             Text(title,
                 style: TextStyle(
                   color: titleColor,

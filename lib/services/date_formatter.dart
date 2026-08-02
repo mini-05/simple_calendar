@@ -50,9 +50,14 @@ class DateFormatter {
   /// 'N주차' 형식 주차 라벨.
   static String weekLabelKo(DateTime d) => '${isoWeek(d)}주차';
 
+  /// 한글 요일 라벨(일요일 시작). 달력 헤더와 날짜 표기가 공유한다.
+  static const koWeekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
+  /// DateTime.weekday(월=1…일=7)를 위 배열 인덱스로 변환해 반환.
+  static String weekdayKo(int weekday) => koWeekdays[weekday % 7];
+
   static String formatDateKorean(DateTime d) {
-    const wd = ['일', '월', '화', '수', '목', '금', '토'];
-    return '${d.year}년 ${d.month}월 ${d.day}일 (${wd[d.weekday % 7]})';
+    return '${d.year}년 ${d.month}월 ${d.day}일 (${weekdayKo(d.weekday)})';
   }
 
   static String formatHHmm(String hhmm) {
@@ -78,18 +83,30 @@ class DateFormatter {
     return '${e.startDt.month}.${e.startDt.day} $sT ~ ${e.endDt.month}.${e.endDt.day} $eT';
   }
 
+  // [v4.4.8] 음력 변환 결과 캐시.
+  // Lunar.fromDate는 테이블 조회가 아니라 실제 천문/율리우스일 계산이라 비용이 크고,
+  // 달력 한 화면(42셀)이 리빌드될 때마다 셀마다 호출된다. 날짜만의 순수 함수이므로
+  // 캐시해도 결과가 달라지지 않으며, 크기는 사용자가 실제로 이동한 날짜로 제한된다.
+  static final Map<int, String?> _lunarLabelCache = {};
+
   /// 일요일 셀에만 표시하는 음력 레이블.
   /// showLunar가 true일 때 해당 날짜의 음력을 '음M.D' 형식으로 반환.
   /// 예) 양력 2025-06-15(일) → 음력 5월 20일 → '음5.20'
   static String? getLunarLabel(DateTime solarDate, bool showLunar) {
     if (!showLunar) return null;
+    final key = solarDate.year * 10000 + solarDate.month * 100 + solarDate.day;
+    final cached = _lunarLabelCache[key];
+    if (cached != null || _lunarLabelCache.containsKey(key)) return cached;
+    String? label;
     try {
       final lunar = Lunar.fromDate(solarDate);
       // 💡 [패치됨] UI 오버플로우 방지를 위해 '음 ' 대신 공백 없는 '음M.D' 형태로 반환
-      return '음${lunar.getMonth()}.${lunar.getDay()}';
+      label = '음${lunar.getMonth()}.${lunar.getDay()}';
     } catch (_) {
-      return null;
+      label = null;
     }
+    _lunarLabelCache[key] = label;
+    return label;
   }
 
   static String getChosung(String str) {

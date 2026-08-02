@@ -208,6 +208,33 @@
     - `calendar_tile.dart`: 외부(다른 달) 날짜 텍스트를 토큰 뉴트럴로.
   * ⚠️ 이 세션 환경엔 Flutter SDK가 없어 시각 결과는 실기기 확인 필요. 변경은 layout 구조를 바꾸지 않는 1:1 색상 치환 위주로 안전하게 적용.
 
+### [코드 품질·효율 정리 (/simplify 4각도 리뷰 반영)]
+* **v4.4.8:** 동작(렌더링/출력)은 완전히 동일하게 유지하면서 품질·효율만 개선. 재사용/단순화/효율/고도 4개 각도의 병렬 리뷰 결과를 통합 적용.
+  * **죽은 코드 제거:**
+    - `AppRadius`/`AppSpace`/`AppType` 삭제 — 호출자가 0이었고 램프 값 자체가 실제 사용값과 어긋나 있었음(가장 많이 쓰이는 반경 12가 램프에 없고, `label=12.5`·`bodyLg=15.5`는 코드베이스에 존재하지 않는 값). 실제로 쓰이는 `AppNeutral`만 존치.
+    - `CalendarState.cachedArrowRowHeight` + `_calcRowHeight` 삭제 — 어떤 위젯도 읽지 않는 값. **화살표 월 이동 시 `state`를 두 번 대입해 화면이 두 번 리빌드되던 원인**이었고(42셀→84셀 빌드), 이벤트 변경 때마다 한 달치 루프도 돌고 있었음.
+    - `CalendarTile.forcedHeight`(전달처 없음), `showLunar` 분기(항상 false, 음력 라벨은 `calendar_screen`이 Stack 오버레이로 그림) 삭제.
+    - `SlotCalculationResult.windowEvents` 필드 삭제 — 24개월 창의 전체 이벤트 목록을 상태 수명 내내 붙잡고 있던 참조. (`operator []`는 단위 테스트가 사용하므로 유지)
+    - `event_bar.dart`의 설날/추석 제목 문자열 특수분기 삭제 — `_addDirect`가 `date == endDate`로 만들어 `isMultiDay`가 항상 false라 도달 불가였음.
+    - `settings_sheet.dart`: 양쪽 분기가 동일하던 삼항식, 아무도 넘기지 않던 `activeColor` 파라미터 제거.
+  * **중복 제거:**
+    - `providers.dart`의 로컬 `_dateKey`, `ics_service_io.dart`의 `_fmtDateStr` → `DateFormatter.dateKey`로 일원화(이벤트 인덱스 키 포맷이 세 곳에 각각 정의돼 있었음).
+    - 두 달력 모드에 복제돼 있던 요일 헤더 → `_dowLabel` 하나로. 한글 요일 배열 3중 → `DateFormatter.koWeekdays`.
+    - 일·토·공휴일 색 규칙 4중 → `dayLabelColor()`. 시트 배경 리터럴 `0xFF2A2640` 다수 → `AppSurface.sheet()`/`th.tSheet`.
+    - `event_bar.dart`의 `stripStyle` 필드 제거(`timeLine != null`과 논리적으로 동일), 틴트 계산을 `AppNeutral`로 이관해 정책 일원화.
+    - `holidays.dart`: 색 `0xFFFF3B30` 4중 하드코딩 → 상수 1개. 공휴일 이름을 상수로 승격해 **생성부와 대체공휴일 판정부가 같은 리터럴을 각자 적어두던 문제** 해소(v4.4.4에서 양쪽을 따로 고쳐야 했던 실제 위험).
+  * **효율 개선:**
+    - 공휴일 생성 아이솔레이트를 `(minDate,maxDate)` 기준으로 캐시 — 일정 추가/수정/삭제·알람 토글·설정 변경 등 창이 그대로인 재빌드에서 매번 아이솔레이트를 띄워 동일 결과를 다시 만들던 비용 제거.
+    - 반복 일정이 하나도 없으면 확장 아이솔레이트를 건너뜀(기존엔 단순 복사를 위해 이벤트 목록을 아이솔레이트로 왕복 직렬화).
+    - `Lunar.fromDate`(천문 계산) 결과 캐시 — 음력 표시 ON일 때 셀마다 호출되던 것을 날짜당 1회로.
+    - 셀마다 4회씩 만들던 `dateKey`를 1회로(`CalendarTile`이 계산해 `EventBar`에 전달).
+    - `AppThemeExt.themeData` 인스턴스 캐시 — 접근할 때마다 새 테마 객체를 만들던 것을 제거(모든 구현체가 불변이라 안전).
+    - `AppNeutral` HSL 변환 결과 메모이제이션.
+    - `HomeWidgetService`: 12개 저장을 순차 await → `Future.wait`(서로 다른 키라 순서 무관, 갱신은 그대로 마지막).
+    - 앱 시작 시 설정 키를 두 번 읽던 것을 한 번으로(`loadWithFirstRun`).
+    - `holidays.dart` `_processHolidayGroup`: 안쪽 스캔 루프마다 다시 만들던 `dateKey`를 바깥 루프에서 1회로.
+  * ⚠️ 이 환경엔 Flutter SDK가 없어 `flutter analyze`/테스트 미실행. 정적 검토로 확인했으며 실기기 검증 권장.
+
 ---
 
 ## 🎯 4. 향후 마일스톤 (Upcoming Milestones)

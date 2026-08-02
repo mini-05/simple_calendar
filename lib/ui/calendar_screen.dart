@@ -1,4 +1,4 @@
-// v4.4.6
+// v4.4.8
 // gemini_calendar_screen.dart
 // lib/ui/calendar_screen.dart
 // [v4.4.3] 테마 변경 시 페이지 컨트롤러 파괴 방지 (위젯 트리 통일)
@@ -6,6 +6,8 @@
 // [v4.4.3] 달력 셀(Tile) 전체 영역 터치 인식되도록 HitTestBehavior.opaque 적용
 // [v4.4.5] 화살표 모드 셀 마진 제거(CalendarStyle)로 다중일 일정 바 연결
 // [v4.4.6] 중복 월 라벨 제거(DateFormatter 사용), 줄바꿈 설정 CalendarTile 전달
+// [v4.4.8] 정리: 두 곳에 복제돼 있던 요일 헤더를 _dowLabel 하나로,
+//   시트 배경색 리터럴을 th.tSheet 토큰으로, 한글 요일 배열을 DateFormatter로.
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +16,7 @@ import '../models/models.dart';
 import '../providers/providers.dart';
 import '../services/services.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import 'widgets/calendar_tile.dart';
 import 'widgets/app_drawer.dart';
 import 'dialogs/event_editor.dart';
@@ -103,9 +106,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor:
-          th.bottomSheetBg ??
-          (th.isDark ? const Color(0xFF2A2640) : Colors.white),
+      backgroundColor: th.tSheet,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -284,11 +285,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         }),
                     child: Container(
                       decoration: BoxDecoration(
-                        color:
-                            th.bottomSheetBg ??
-                            (th.isDark
-                                ? const Color(0xFF2A2640)
-                                : Colors.white),
+                        color: th.tSheet,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(28),
                         ),
@@ -491,7 +488,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     CalendarTheme th,
   ) {
     final hc = th.appBarText;
-    const dows = ['일', '월', '화', '수', '목', '금', '토'];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -510,25 +506,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           cellPadding: EdgeInsets.zero,
         ),
         calendarBuilders: CalendarBuilders(
-          dowBuilder: (_, day) {
-            Color c = hc.withValues(alpha: 0.6);
-            if (day.weekday == DateTime.sunday) {
-              c = Colors.redAccent;
-            }
-            if (day.weekday == DateTime.saturday) {
-              c = Colors.blueAccent;
-            }
-            return Center(
-              child: Text(
-                dows[day.weekday % 7],
-                style: TextStyle(
-                  color: c,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            );
-          },
+          dowBuilder: (_, day) => _dowLabel(day.weekday % 7, hc),
           defaultBuilder: (_, d, __) => _tile(d, st, th),
           todayBuilder: (_, d, __) => _tile(d, st, th, isToday: true),
           selectedBuilder: (_, d, __) => _tile(d, st, th, isSelected: true),
@@ -556,7 +534,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     CalendarTheme th,
   ) {
     final hc = th.appBarText;
-    const dows = ['일', '월', '화', '수', '목', '금', '토'];
     final axis =
         st.settings.calendarNavMode == CalendarNavMode.swipeVertical
             ? Axis.vertical
@@ -567,27 +544,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
-            children: List.generate(7, (i) {
-              Color c = hc.withValues(alpha: 0.6);
-              if (i == 0) {
-                c = Colors.redAccent;
-              }
-              if (i == 6) {
-                c = Colors.blueAccent;
-              }
-              return Expanded(
-                child: Center(
-                  child: Text(
-                    dows[i],
-                    style: TextStyle(
-                      color: c,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              );
-            }),
+            children: List.generate(
+              7,
+              (i) => Expanded(child: _dowLabel(i, hc)),
+            ),
           ),
         ),
         Expanded(
@@ -604,6 +564,21 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// 요일 헤더 한 칸. idx 0=일 … 6=토 (화살표/스와이프 두 달력이 공유).
+  Widget _dowLabel(int idx, Color hc) {
+    final weekday = idx == 0 ? DateTime.sunday : idx;
+    return Center(
+      child: Text(
+        DateFormatter.koWeekdays[idx],
+        style: TextStyle(
+          color: dayLabelColor(weekday) ?? hc.withValues(alpha: 0.6),
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
@@ -686,7 +661,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             isSelected: isSelected,
             isOutside: isOutside,
             isHoliday: st.holidayDates.contains(DateFormatter.dateKey(day)),
-            showLunar: false,
             wrapEventText: st.settings.wrapEventText,
           ),
           if (customLunarText != null)
@@ -834,9 +808,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   ) {
     showModalBottomSheet(
       context: context,
-      backgroundColor:
-          th.bottomSheetBg ??
-          (th.isDark ? const Color(0xFF2A2640) : Colors.white),
+      backgroundColor: th.tSheet,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

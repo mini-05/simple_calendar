@@ -12,6 +12,27 @@ import '../models/models.dart';
 import 'date_formatter.dart';
 
 class HolidayUtil {
+  // [v4.4.8] 공휴일 이름/색을 상수로 승격.
+  //   이름: 생성부(_getSolarHolidays 등)와 대체공휴일 판정부(_getAlternativeHolidays)가
+  //   같은 리터럴을 각자 적어두고 있어, 한쪽만 고치면 조용히 어긋났다.
+  //   색: 서비스 안에 네 번 하드코딩되어 있던 표시용 상수.
+  static const _colorHoliday = 0xFFFF3B30;
+
+  static const _newYear = '신정';
+  static const _samil = '삼일절';
+  static const _children = '어린이날';
+  static const _memorial = '현충일';
+  static const _liberation = '광복절';
+  static const _foundation = '개천절';
+  static const _hangul = '한글날';
+  static const _christmas = '크리스마스';
+  static const _buddha = '부처님오신날';
+  static const _seollal = '설날';
+  static const _seollalEve = '설날 연휴';
+  static const _chuseok = '추석';
+  static const _chuseokEve = '추석 연휴';
+  static const _substitute = '대체공휴일';
+
   static List<CalendarEvent> generateHolidaysForWindow(
       DateTime minDate, DateTime maxDate) {
     final holidays = <CalendarEvent>[];
@@ -37,18 +58,18 @@ class HolidayUtil {
         date: DateFormatter.dateKey(dt),
         endDate: DateFormatter.dateKey(dt),
         isAllDay: true,
-        colorValue: 0xFFFF3B30,
+        colorValue: _colorHoliday,
       ));
     }
 
-    add(1, 1, '신정');
-    add(3, 1, '삼일절');
-    add(5, 5, '어린이날');
-    add(6, 6, '현충일');
-    add(8, 15, '광복절');
-    add(10, 3, '개천절');
-    add(10, 9, '한글날');
-    add(12, 25, '크리스마스');
+    add(1, 1, _newYear);
+    add(3, 1, _samil);
+    add(5, 5, _children);
+    add(6, 6, _memorial);
+    add(8, 15, _liberation);
+    add(10, 3, _foundation);
+    add(10, 9, _hangul);
+    add(12, 25, _christmas);
     return list;
   }
 
@@ -66,21 +87,21 @@ class HolidayUtil {
           date: DateFormatter.dateKey(dt),
           endDate: DateFormatter.dateKey(dt),
           isAllDay: true,
-          colorValue: 0xFFFF3B30,
+          colorValue: _colorHoliday,
         ));
       } catch (_) {}
     }
 
-    addLunar(4, 8, '부처님오신날');
+    addLunar(4, 8, _buddha);
 
     try {
       final seollalLunar = Lunar.fromYmd(year, 1, 1);
       final seollalSolar = seollalLunar.getSolar();
       final dt = DateTime(seollalSolar.getYear(), seollalSolar.getMonth(),
           seollalSolar.getDay());
-      _addDirect(list, dt.subtract(const Duration(days: 1)), '설날 연휴');
-      _addDirect(list, dt, '설날');
-      _addDirect(list, dt.add(const Duration(days: 1)), '설날 연휴');
+      _addDirect(list, dt.subtract(const Duration(days: 1)), _seollalEve);
+      _addDirect(list, dt, _seollal);
+      _addDirect(list, dt.add(const Duration(days: 1)), _seollalEve);
     } catch (_) {}
 
     try {
@@ -88,9 +109,9 @@ class HolidayUtil {
       final chuseokSolar = chuseokLunar.getSolar();
       final dt = DateTime(chuseokSolar.getYear(), chuseokSolar.getMonth(),
           chuseokSolar.getDay());
-      _addDirect(list, dt.subtract(const Duration(days: 1)), '추석 연휴');
-      _addDirect(list, dt, '추석');
-      _addDirect(list, dt.add(const Duration(days: 1)), '추석 연휴');
+      _addDirect(list, dt.subtract(const Duration(days: 1)), _chuseokEve);
+      _addDirect(list, dt, _chuseok);
+      _addDirect(list, dt.add(const Duration(days: 1)), _chuseokEve);
     } catch (_) {}
 
     return list;
@@ -103,7 +124,7 @@ class HolidayUtil {
       date: DateFormatter.dateKey(dt),
       endDate: DateFormatter.dateKey(dt),
       isAllDay: true,
-      colorValue: 0xFFFF3B30,
+      colorValue: _colorHoliday,
     ));
   }
 
@@ -114,17 +135,17 @@ class HolidayUtil {
 
     // 법 제3조①1호·3호 대상 단일 공휴일 (신정·현충일은 대상 아님)
     const singleHolidayNames = {
-      '삼일절',
-      '어린이날',
-      '광복절',
-      '개천절',
-      '한글날',
-      '크리스마스',
-      '부처님오신날',
+      _samil,
+      _children,
+      _liberation,
+      _foundation,
+      _hangul,
+      _christmas,
+      _buddha,
     };
 
-    const seollalNames = {'설날 연휴', '설날'};
-    const chuseokNames = {'추석 연휴', '추석'};
+    const seollalNames = {_seollalEve, _seollal};
+    const chuseokNames = {_chuseokEve, _chuseok};
 
     void addAlt(DateTime dt, String label) {
       var candidate = dt;
@@ -142,7 +163,7 @@ class HolidayUtil {
           date: key,
           endDate: key,
           isAllDay: true,
-          colorValue: 0xFFFF3B30,
+          colorValue: _colorHoliday,
         ));
       }
     }
@@ -167,13 +188,13 @@ class HolidayUtil {
       final overlapsOtherHoliday = (dateCount[h.date] ?? 0) > 1;
 
       if (isWeekend || overlapsOtherHoliday) {
-        addAlt(dt.add(const Duration(days: 1)), '대체공휴일');
+        addAlt(dt.add(const Duration(days: 1)), _substitute);
       }
     }
 
     // 2. 명절 연휴 대체 로직
-    _processHolidayGroup(current, seollalNames, year, '대체공휴일', result, addAlt);
-    _processHolidayGroup(current, chuseokNames, year, '대체공휴일', result, addAlt);
+    _processHolidayGroup(current, seollalNames, year, _substitute, result, addAlt);
+    _processHolidayGroup(current, chuseokNames, year, _substitute, result, addAlt);
 
     return result;
   }
@@ -198,10 +219,12 @@ class HolidayUtil {
     int altCount = 0;
     for (final d in groupDays) {
       // 자신 그룹 제외한 '다른 공휴일'과 겹치는지 체크
+      // (dateKey는 바깥 루프에서 한 번만 만든다 — 예전에는 current를 훑는
+      //  안쪽 루프마다 같은 문자열을 다시 만들고 있었다)
+      final dKey = DateFormatter.dateKey(d);
       bool overlapOtherHoliday = false;
       for (final other in current) {
-        if (!groupNames.contains(other.title) &&
-            other.date == DateFormatter.dateKey(d)) {
+        if (!groupNames.contains(other.title) && other.date == dKey) {
           overlapOtherHoliday = true;
           break;
         }
