@@ -6,6 +6,7 @@ name: Build Flutter APK and AAB
 on:
   push:
     branches: [ "main", "master" ]
+  workflow_dispatch:
 
 permissions:
   contents: write
